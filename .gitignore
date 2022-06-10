@@ -1,0 +1,8 @@
+/.vs
+/.vscode
+*.r
+.dbconnection
+.settings
+ubpf.config
+.project
+.propath
