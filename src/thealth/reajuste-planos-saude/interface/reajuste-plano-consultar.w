@@ -75,7 +75,7 @@ define new global shared variable v_cod_usuar_corren as character
 &Scoped-define INTERNAL-TABLES temp-contrato
 
 /* Definitions for BROWSE browseDados                                   */
-&Scoped-define FIELDS-IN-QUERY-browseDados temp-contrato.lg-marcado temp-contrato.in-modalidade temp-contrato.in-termo temp-contrato.in-proposta temp-contrato.ch-ultimo-reajuste temp-contrato.dc-percentual-ultimo-reajuste temp-contrato.ch-ultimo-faturamento temp-contrato.dc-contratante temp-contrato.dc-contratante-origem temp-contrato.ch-contratante temp-contrato.ch-contratante-origem temp-contrato.lg-possui-reajuste-ano-ref   
+&Scoped-define FIELDS-IN-QUERY-browseDados temp-contrato.lg-marcado temp-contrato.in-modalidade temp-contrato.in-termo temp-contrato.in-proposta temp-contrato.ch-ultimo-reajuste temp-contrato.dc-percentual-ultimo-reajuste temp-contrato.ch-ultimo-faturamento temp-contrato.dc-contratante temp-contrato.dc-contratante-origem temp-contrato.ch-contratante temp-contrato.ch-contratante-origem temp-contrato.lg-possui-reajuste-ano-ref temp-contrato.lg-eventos-gerados temp-contrato.ch-usuario-evento temp-contrato.dt-geracao-evento   
 &Scoped-define ENABLED-FIELDS-IN-QUERY-browseDados temp-contrato.lg-marcado   
 &Scoped-define ENABLED-TABLES-IN-QUERY-browseDados temp-contrato
 &Scoped-define FIRST-ENABLED-TABLE-IN-QUERY-browseDados temp-contrato
@@ -147,6 +147,11 @@ define variable checkMarcarTodos as logical initial no
      view-as toggle-box
      size 2.6 by .81 no-undo.
 
+define variable checkOcultarSemReajuste as logical initial yes 
+     label "Ocultar contratos sem reajuste" 
+     view-as toggle-box
+     size 40 by .81 no-undo.
+
 define button buttonSair 
      label "Sai&r" 
      size 15 by 1.14.
@@ -164,11 +169,6 @@ define variable comboTipoPessoa as character format "X(256)":U
                      "Jurídica","3"
      drop-down-list
      size 33 by 1 no-undo.
-
-define variable textAnoCompetencia as integer format "9999":U initial 0 
-     label "Periodo ref" 
-     view-as fill-in 
-     size 14 by 1 no-undo.
 
 define variable textContratanteFim as decimal format "999999999":U initial 999999999 
      label "até" 
@@ -215,6 +215,11 @@ define variable textPeriodoFat as character format "99/9999":U initial "111111"
      view-as fill-in 
      size 14 by 1 no-undo.
 
+define variable textPeriodoReajuste as character format "99/9999":U initial "111111" 
+     label "Periodo reajuste" 
+     view-as fill-in 
+     size 14 by 1 no-undo.
+
 define variable textPlanoFim as integer format "99":U initial 99 
      label "até" 
      view-as fill-in 
@@ -248,11 +253,6 @@ define variable textTipoPlanoIni as integer format "99":U initial 0
 define rectangle RECT-1
      edge-pixels 2 graphic-edge  no-fill   
      size 139 by 5.71.
-
-define variable checkOcultarSemReajuste as logical initial yes 
-     label "Ocultar contratos sem reajuste" 
-     view-as toggle-box
-     size 40 by .81 no-undo.
 
 /* Query definitions                                                    */
 &ANALYZE-SUSPEND
@@ -297,13 +297,14 @@ define frame frameDefault
          bgcolor 15 font 1 widget-id 100.
 
 define frame frameCorpo
+     buttonAgendarEventos at row 5.48 col 132.2 widget-id 32
+     checkOcultarSemReajuste at row 1.05 col 55 widget-id 50
      buttonExpotar at row 7.14 col 132.2 widget-id 36
      radioEdicaoBrowse at row 1.14 col 101.6 no-label widget-id 12
      browseDados at row 2.19 col 1 widget-id 500
-     checkMarcarTodos at row 2.24 col 1.65 widget-id 34
+     checkMarcarTodos at row 2.24 col 1.6 widget-id 34
      buttonDetalhar at row 3.81 col 132.2 widget-id 30
      buttonParametros at row 2.14 col 132.2 widget-id 28
-     buttonAgendarEventos at row 5.48 col 132.2 widget-id 32
      buttonBrowseLimpar at row 1 col 133.2 widget-id 24
      buttonConfigBrowse at row 1 col 136 widget-id 26
     with 1 down keep-tab-order overlay 
@@ -315,24 +316,23 @@ define frame frameCorpo
 
 define frame frameSuperior
      buttonPesquisar at row 1.48 col 128 widget-id 32
-     textPeriodoFat at row 1.48 col 97 colon-aligned widget-id 46
      textModalidadeIni at row 1.71 col 15 colon-aligned widget-id 2
      textModalidadeFim at row 1.71 col 26 colon-aligned widget-id 4
-     textTermoIni at row 1.71 col 45 colon-aligned widget-id 18
-     textTermoFim at row 1.71 col 64 colon-aligned widget-id 20
-     textAnoCompetencia at row 2.67 col 97 colon-aligned widget-id 48
      textPlanoIni at row 2.91 col 15 colon-aligned widget-id 8
      textPlanoFim at row 2.91 col 26 colon-aligned widget-id 6
-     textContratanteIni at row 2.91 col 45 colon-aligned widget-id 14
-     textContratanteFim at row 2.91 col 64 colon-aligned widget-id 16
      textTipoPlanoIni at row 4.1 col 15 colon-aligned widget-id 12
      textTipoPlanoFim at row 4.1 col 26 colon-aligned widget-id 10
-     textConvenioIni at row 4.1 col 45 colon-aligned widget-id 40
-     textConvenioFim at row 4.1 col 64 colon-aligned widget-id 42
      textFormaPagtoIni at row 5.29 col 15 colon-aligned widget-id 36
      textFormaPagtoFim at row 5.29 col 26 colon-aligned widget-id 38
+     textTermoIni at row 1.71 col 45 colon-aligned widget-id 18
+     textTermoFim at row 1.71 col 64 colon-aligned widget-id 20
+     textContratanteIni at row 2.91 col 45 colon-aligned widget-id 14
+     textContratanteFim at row 2.91 col 64 colon-aligned widget-id 16
+     textConvenioIni at row 4.1 col 45 colon-aligned widget-id 40
+     textConvenioFim at row 4.1 col 64 colon-aligned widget-id 42
      comboTipoPessoa at row 5.29 col 45 colon-aligned widget-id 30
-     checkOcultarSemReajuste at row 5.52 col 99 widget-id 50
+     textPeriodoFat at row 1.48 col 97 colon-aligned widget-id 46
+     textPeriodoReajuste at row 2.67 col 97 colon-aligned widget-id 48
      RECT-1 at row 1.24 col 2 widget-id 34
     with 1 down no-box keep-tab-order overlay 
          side-labels no-underline three-d 
@@ -415,7 +415,7 @@ assign XXTABVALXX = frame frameCorpo:MOVE-BEFORE-TAB-ITEM (frame frameRodape:HAN
 /* SETTINGS FOR FRAME frameRodape
                                                                         */
 /* SETTINGS FOR FRAME frameSuperior
-                                                                        */
+   Custom                                                               */
 if session:display-type = "GUI":U and VALID-HANDLE(winMain)
 then winMain:hidden = no.
 
@@ -519,6 +519,16 @@ end.
 &ANALYZE-RESUME
 
 
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL browseDados winMain
+on value-changed of browseDados in frame frameCorpo
+do:
+  
+end.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
 &Scoped-define SELF-NAME buttonAgendarEventos
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonAgendarEventos winMain
 on choose of buttonAgendarEventos in frame frameCorpo
@@ -587,6 +597,19 @@ end.
 &ANALYZE-RESUME
 
 
+&Scoped-define SELF-NAME checkOcultarSemReajuste
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL checkOcultarSemReajuste winMain
+on value-changed of checkOcultarSemReajuste in frame frameCorpo /* Ocultar contratos sem reajuste */
+do:
+    
+    run acaoAtualizarFiltro.  
+end.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
+
 &Scoped-define FRAME-NAME frameDefault
 &UNDEFINE SELF-NAME
 
@@ -635,6 +658,36 @@ end.
 
 
 /* **********************  Internal Procedures  *********************** */
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoAtualizarFiltro winMain 
+procedure acaoAtualizarFiltro private :
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define variable ch-query            as   character  no-undo.
+    
+    assign ch-query = 'preselect each temp-contrato'.
+    
+    if checkOcultarSemReajuste:checked in frame frameCorpo 
+    then do:
+        
+        assign ch-query = ch-query + ' where temp-contrato.lg-possui-reajuste-ano-ref'.
+    end.
+    
+    run registrarQueryDefaultBrowseDados (ch-query).
+
+    query browseDados:query-prepare (ch-query).
+    query browseDados:query-open (). 
+    
+    run reiniciarDados in hd-browse-browseDados.
+    run gerarJsonConfiguracaoBrowse in hd-browse-browseDados (output lo-configuracao-browse).
+    
+
+end procedure.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoDetalhar winMain 
 procedure acaoDetalhar private :
@@ -768,20 +821,40 @@ procedure acaoGerarEventos private :
     define variable lg-confirmar            as   logical    no-undo.
     define variable in-ano-fat              as   integer    no-undo.
     define variable in-mes-fat              as   integer    no-undo.
+    define variable in-conta                as   integer    no-undo.
+
+    define buffer buf-temp-contrato         for  temp-contrato.
 
     find first temp-contrato
          where temp-contrato.lg-marcado
            and temp-contrato.lg-possui-reajuste-ano-ref
+           and temp-contrato.lg-eventos-gerados         = no
                no-error.
                
     if not available temp-contrato
     then do:
         
         message substitute ('Selecione ao menos um contrato que possua reajuste na competˆncia &1 para gerar os eventos',
-                            textAnoCompetencia:screen-value in frame frameSuperior)
+                            textPeriodoReajuste:screen-value in frame frameSuperior)
         view-as alert-box information buttons ok.
         return.
     end.               
+        
+    for each buf-temp-contrato
+       where buf-temp-contrato.lg-marcado                   = yes
+         and buf-temp-contrato.lg-possui-reajuste-ano-ref   = yes
+         and buf-temp-contrato.lg-eventos-gerados           = no:
+             
+        assign in-conta = in-conta + 1.
+    end.             
+    
+    message substitute ('Confirma iniciar a gera‡Æo dos eventos para &1 contrato&2 selecionado&3?',
+                        in-conta,
+                        if in-conta =  1 then '' else 's')
+    view-as alert-box question buttons yes-no update lg-confirmar.
+    
+    if not lg-confirmar 
+    then return.
     
     do on error undo, return:
 
@@ -790,13 +863,18 @@ procedure acaoGerarEventos private :
         assign in-ano-fat   = integer (substring (textPeriodoFat:screen-value, 4, 4))
                in-mes-fat   = integer (substring (textPeriodoFat:screen-value, 1, 2)) 
                .
+               
+        temp-table temp-contrato:write-json ('file', 'c:/temp/casali/temp-contrato.json', yes).
+        temp-table temp-valor-beneficiario:write-json ('file', 'c:/temp/casali/temp-valor-beneficiario.json', yes).
+        temp-table temp-valor-beneficiario-mes:write-json ('file', 'c:/temp/casali/temp-valor-beneficiario-mes.json', yes).               
                                                                 
         run criarEventosContratos in hd-api (input              in-ano-fat,
                                              input              in-mes-fat,
+                                             input              textPeriodoReajuste:screen-value,
                                              input-output table temp-contrato by-reference,
                                              input-output table temp-valor-beneficiario by-reference,
                                              input-output table temp-valor-beneficiario-mes by-reference)
-            .
+            . 
                  
         catch cs-erro as Progress.Lang.Error : 
             
@@ -890,38 +968,29 @@ procedure acaoPesquisar private :
         
         subscribe to EV_API_REAJUSTE_PLANO_CONSULTAR in hd-api run-procedure "eventoApiConsultar".
      
-        run buscarContratos in hd-api (input  integer (textModalidadeIni:screen-value in frame frameSuperior),
-                                       input  integer (textModalidadeFim:screen-value),
-                                       input  integer (textPlanoIni:screen-value),
-                                       input  integer (textPlanoFim:screen-value),
-                                       input  integer (textTipoPlanoIni:screen-value), 
-                                       input  integer (textTipoPlanoFim:screen-value),
-                                       input  integer (textContratanteIni:screen-value),
-                                       input  integer (textContratanteFim:screen-value),
-                                       input  integer (textTermoIni:screen-value),
-                                       input  integer (textTermoFim:screen-value),
-                                       input  integer (textFormaPagtoIni:screen-value),
-                                       input  integer (textFormaPagtoFim:screen-value),
-                                       input  integer (textConvenioIni:screen-value),
-                                       input  integer (textConvenioFim:screen-value),
-                                       input  comboTipoPessoa:input-value,
-                                       input  textPeriodoFat:screen-value,
-                                       input  integer (textAnoCompetencia:screen-value),
-                                       output table temp-contrato, 
-                                       output table temp-valor-beneficiario).
-        assign ch-query = 'preselect each temp-contrato'.
+        run buscarContratos in hd-api (input        integer (textModalidadeIni:screen-value in frame frameSuperior),
+                                       input        integer (textModalidadeFim:screen-value),
+                                       input        integer (textPlanoIni:screen-value),
+                                       input        integer (textPlanoFim:screen-value),
+                                       input        integer (textTipoPlanoIni:screen-value), 
+                                       input        integer (textTipoPlanoFim:screen-value),
+                                       input        integer (textContratanteIni:screen-value),
+                                       input        integer (textContratanteFim:screen-value),
+                                       input        integer (textTermoIni:screen-value),
+                                       input        integer (textTermoFim:screen-value),
+                                       input        integer (textFormaPagtoIni:screen-value),
+                                       input        integer (textFormaPagtoFim:screen-value),
+                                       input        integer (textConvenioIni:screen-value),
+                                       input        integer (textConvenioFim:screen-value),
+                                       input        comboTipoPessoa:input-value,
+                                       input        textPeriodoFat:screen-value,
+                                       input        textPeriodoReajuste:screen-value,
+                                       output table temp-contrato by-reference, 
+                                       output table temp-valor-beneficiario by-reference,
+                                       output table temp-valor-beneficiario-mes by-reference).
         
-        if checkOcultarSemReajuste:checked 
-        then do:
-            
-            assign ch-query = ch-query + ' where temp-contrato.lg-possui-reajuste-ano-ref'.
-        end.
-        
-        run registrarQueryDefaultBrowseDados (ch-query).
+        run acaoAtualizarFiltro.
 
-        query browseDados:query-prepare (ch-query).
-        query browseDados:query-open ().                                       
-                                       
         catch cs-erro as Progress.Lang.Error : 
             
             if cs-erro:GetMessageNum(1) = 1
@@ -982,25 +1051,24 @@ procedure enable_UI :
 ------------------------------------------------------------------------------*/
   view frame frameDefault in window winMain.
   {&OPEN-BROWSERS-IN-QUERY-frameDefault}
-  display textPeriodoFat textModalidadeIni textModalidadeFim textTermoIni 
-          textTermoFim textAnoCompetencia textPlanoIni textPlanoFim 
-          textContratanteIni textContratanteFim textTipoPlanoIni 
-          textTipoPlanoFim textConvenioIni textConvenioFim textFormaPagtoIni 
-          textFormaPagtoFim comboTipoPessoa checkOcultarSemReajuste 
+  display textModalidadeIni textModalidadeFim textPlanoIni textPlanoFim 
+          textTipoPlanoIni textTipoPlanoFim textFormaPagtoIni textFormaPagtoFim 
+          textTermoIni textTermoFim textContratanteIni textContratanteFim 
+          textConvenioIni textConvenioFim comboTipoPessoa textPeriodoFat 
+          textPeriodoReajuste 
       with frame frameSuperior in window winMain.
-  enable buttonPesquisar RECT-1 textPeriodoFat textModalidadeIni 
-         textModalidadeFim textTermoIni textTermoFim textAnoCompetencia 
-         textPlanoIni textPlanoFim textContratanteIni textContratanteFim 
-         textTipoPlanoIni textTipoPlanoFim textConvenioIni textConvenioFim 
-         textFormaPagtoIni textFormaPagtoFim comboTipoPessoa 
-         checkOcultarSemReajuste 
+  enable buttonPesquisar textModalidadeIni textModalidadeFim textPlanoIni 
+         textPlanoFim textTipoPlanoIni textTipoPlanoFim textFormaPagtoIni 
+         textFormaPagtoFim textTermoIni textTermoFim textContratanteIni 
+         textContratanteFim textConvenioIni textConvenioFim comboTipoPessoa 
+         textPeriodoFat textPeriodoReajuste RECT-1 
       with frame frameSuperior in window winMain.
   {&OPEN-BROWSERS-IN-QUERY-frameSuperior}
-  display radioEdicaoBrowse checkMarcarTodos 
+  display checkOcultarSemReajuste radioEdicaoBrowse checkMarcarTodos 
       with frame frameCorpo in window winMain.
-  enable buttonExpotar radioEdicaoBrowse browseDados checkMarcarTodos 
-         buttonDetalhar buttonParametros buttonAgendarEventos 
-         buttonBrowseLimpar buttonConfigBrowse 
+  enable buttonAgendarEventos checkOcultarSemReajuste buttonExpotar 
+         radioEdicaoBrowse browseDados checkMarcarTodos buttonDetalhar 
+         buttonParametros buttonBrowseLimpar buttonConfigBrowse 
       with frame frameCorpo in window winMain.
   {&OPEN-BROWSERS-IN-QUERY-frameCorpo}
   enable buttonSair 
@@ -1074,9 +1142,19 @@ procedure initializarInterface private :
                                               input  v_cod_usuar_corren,
                                               input  PARAM_LAYOUT_BROWSE,   
                                               output lo-configuracao-browse) no-error.   
+
+        define variable dt-process  as date no-undo.
+        assign dt-process   = today.
                                               
-                                                      
-                                              
+        assign textPeriodoReajuste:screen-value = substitute ('&1&2',
+                                                              string (month (dt-process), '99'),
+                                                              string (year (dt-process), '9999'))
+               dt-process                       = add-interval (date (month (dt-process), 1, year (dt-process)) , 1, 'month')                                                              
+               textPeriodoFat:screen-value      = substitute ('&1&2',
+                                                              string ( month (dt-process), '99'),
+                                                              string (year (dt-process), '9999'))                                                           
+               .                                                      
+
         assign textContratanteFim:label = 'at‚'
                textModalidadeFim:label  = 'at‚'
                textPlanoFim:label       = 'at‚'
@@ -1087,15 +1165,6 @@ procedure initializarInterface private :
                .                               
                
         apply 'value-changed' to radioEdicaoBrowse.                         
-                                                                                                          
-        // TODO REMOVER
-        assign textModalidadeIni:screen-value in frame frameSuperior = '5'
-               textModalidadeFim:screen-value in frame frameSuperior = '5'
-               textTermoIni:screen-value                            = "20000"
-               textTermoFim:screen-value                            = "21000"
-               textPeriodoFat:screen-value in frame frameSuperior = '072022'
-               textAnoCompetencia:screen-value                      = '2022'
-        .
         
         run prepararbrowseDados.
         

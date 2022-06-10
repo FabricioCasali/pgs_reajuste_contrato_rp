@@ -59,12 +59,12 @@ procedure buscarContratos:
     define input  parameter in-convenio-fim             as   integer    no-undo.
     define input  parameter ch-tipo-pessoa              as   character  no-undo.
     define input  parameter ch-periodo-fat              as   character  no-undo.
-    define input  parameter in-ano-competencia          as   integer    no-undo.
+    define input  parameter ch-periodo-reajuste         as   character  no-undo.
     
     define output parameter table                       for  temp-contrato. 
     define output parameter table                       for  temp-valor-beneficiario.
-    
-    
+    define output parameter table                       for  temp-valor-beneficiario-mes.
+        
     define buffer buf-contrat                           for  contrat.
     
     define variable in-ano-ult-reaj                     as   integer    no-undo.
@@ -76,6 +76,8 @@ procedure buscarContratos:
     
     define variable ch-query                            as   character  no-undo.
     define variable hd-query                            as   handle     no-undo.
+    define variable in-mes-reaj-filtro                  as   integer    no-undo.
+    define variable in-ano-reaj-filtro                  as   integer    no-undo.
         
     empty temp-table temp-contrato.
     empty temp-table temp-valor-beneficiario.
@@ -171,7 +173,7 @@ procedure buscarContratos:
                lg-usar-regra-valor-mes-ref          = usarRegraValorMesReferencia (propost.cd-modalidade,
                                                                                    propost.nr-ter-adesao )
                .
-
+        
         find first reajuste-contrato no-lock
              where reajuste-contrato.in-modalidade  = propost.cd-modalidade
                and reajuste-contrato.in-termo       = propost.nr-ter-adesao
@@ -208,17 +210,37 @@ procedure buscarContratos:
                    .
         end.
         
+        assign in-mes-reaj-filtro                           = integer (substring (ch-periodo-reajuste, 1, 2))
+               in-ano-reaj-filtro                           = integer (substring (ch-periodo-reajuste, 4, 4))
+               .
+               
+        if month (propost.dt-proposta) <> in-mes-reaj-filtro
+        then do:
+            
+            delete temp-contrato.
+            next.
+        end.
+                       
         assign temp-contrato.ch-ultimo-reajuste             = substitute ('&1/&2', string (in-mes-ult-reaj, '99'), string (in-ano-ult-reaj, '9999'))
                temp-contrato.dc-percentual-ultimo-reajuste  = dc-perc-ult-reaj
-               temp-contrato.lg-possui-reajuste-ano-ref     = (in-ano-ult-reaj = in-ano-competencia)
                .
+               
+        if in-mes-ult-reaj  = in-mes-reaj-filtro
+        or in-ano-ult-reaj  = in-ano-reaj-filtro
+        then do:
+            
+            assign temp-contrato.lg-possui-reajuste-ano-ref = yes
+                   .
 
-        run buscarFaturamentoContrato (input  propost.cd-modalidade,
-                                       input  propost.nr-ter-adesao,
-                                       input  in-ano-ult-reaj,
-                                       input  in-mes-ult-reaj,
-                                       input  in-ano-fat,
-                                       input  in-mes-fat).    
+            run buscarFaturamentoContrato (input  propost.cd-modalidade,
+                                           input  propost.nr-ter-adesao,
+                                           input  in-ano-ult-reaj,
+                                           input  in-mes-ult-reaj,
+                                           input  in-ano-fat,
+                                           input  in-mes-fat).    
+        end.            
+        
+               
     end.
 end procedure.
 
@@ -240,11 +262,11 @@ procedure buscarFaturamentoContrato private:
     
     define buffer buf-temp-valor-beneficiario-mes for temp-valor-beneficiario-mes.      
 
-    define variable in-mes as integer no-undo.
-    define variable in-ano as integer no-undo.
-    define variable in-idade as integer no-undo.
-                            define variable in-mes-ant as integer no-undo.
-                            define variable in-ano-ant as integer no-undo.
+    define variable in-mes                              as   integer    no-undo.
+    define variable in-ano                              as   integer    no-undo.
+    define variable in-idade                            as   integer    no-undo.
+    define variable in-mes-ant                          as   integer    no-undo.
+    define variable in-ano-ant                          as   integer    no-undo.
     
     assign in-ano   = in-ano-ref
            in-mes   = in-mes-ref
@@ -382,6 +404,9 @@ procedure buscarFaturamentoContrato private:
             log-manager:write-message (substitute ("&1/&2 -> terminada leitura do faturamento"), "DEBUG") no-error.
             leave.
         end. 
+        
+        if in-ano > in-ano-fat
+        then leave.
     end.               
            
     for each temp-valor-beneficiario-mes
@@ -586,7 +611,7 @@ procedure criarTemporariaValorBenef private:
             
            temp-contrato.in-quantidade-vidas            = temp-contrato.in-quantidade-vidas + 1
     .                                 
-*/
+*/ 
 end procedure.
 
 procedure criarEventosContratos:
@@ -596,6 +621,7 @@ procedure criarEventosContratos:
 ------------------------------------------------------------------------------*/
     define input        parameter in-ano-fat        as   integer    no-undo.
     define input        parameter in-mes-fat        as   integer    no-undo.
+    define input        parameter ch-competencia    as   character  no-undo.
     define input-output parameter table             for  temp-contrato.
     define input-output parameter table             for  temp-valor-beneficiario.
     define input-output parameter table             for  temp-valor-beneficiario-mes.
@@ -665,7 +691,7 @@ procedure criarEventosContratos:
                                                input  temp-valor-beneficiario-mes.in-termo,
                                                input  temp-valor-beneficiario-mes.in-usuario,
                                                input  in-ano, 
-                                                input  in-mes,
+                                               input  in-mes,
                                                input  in-evento,
                                                input  temp-valor-beneficiario-mes.dc-valor-parcela,
                                                input  substitute ('Valor reajuste retroativo referente ao mˆs &1/&2',
@@ -688,11 +714,7 @@ procedure criarEventosContratos:
                                                    temp-contrato.in-modalidade,
                                                    temp-contrato.in-termo), "DEBUG") no-error.
                                                    
-               
-            
-            
             run gerarJson (output lo-data-json).
-                                              
                                                    
             create reajuste-contrato.
             assign reajuste-contrato.in-id                  = next-value (seq-reajuste-contrato)
@@ -742,17 +764,22 @@ procedure gerarJson private:
         assign jObj-valor-benef     = new JsonObject()
                jArr-valor-benef-mes = new JsonArray().
         
-        buffer temp-valor-beneficiario:serialize-row ('json', 'JsonObject', jObj-valor-benef, no).
+        buffer temp-valor-beneficiario:serialize-row ('json', 'JsonObject', jObj-valor-benef, no, ?, yes, yes ).
         
         for each temp-valor-beneficiario-mes
            where temp-valor-beneficiario-mes.in-modalidade  = temp-valor-beneficiario.in-modalidade
              and temp-valor-beneficiario-mes.in-termo       = temp-valor-beneficiario.in-termo
              and temp-valor-beneficiario-mes.in-usuario     = temp-valor-beneficiario.in-usuario:
-        
+            
+            log-manager:write-message (substitute ("&1/&2/&3 vl-mes", 
+                                                   temp-valor-beneficiario-mes.in-modalidade,
+                                                   temp-valor-beneficiario-mes.in-termo,
+                                                   temp-valor-beneficiario-mes.in-usuario), 
+                                       "DEBUG") no-error.
+            
             assign jObj-valor-benef-mes = new JsonObject().                 
             
-            buffer temp-valor-beneficiario-mes:serialize-row ('json', 'JsonObject', jObj-valor-benef-mes, no).
-            
+            buffer temp-valor-beneficiario-mes:serialize-row ('json', 'JsonObject', jObj-valor-benef-mes, no, ?, yes, yes).
             jArr-valor-benef-mes:Add(jObj-valor-benef-mes).                                    
         end.
         

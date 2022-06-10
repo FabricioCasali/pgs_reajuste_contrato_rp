@@ -50,6 +50,10 @@ define temp-table temp-contrato             no-undo
           in-termo
     index idx2
           lg-possui-reajuste-ano-ref
+    index idx3
+          lg-marcado
+          lg-possui-reajuste-ano-ref
+          lg-eventos-gerados
     .
     
 define temp-table temp-valor-beneficiario   no-undo
