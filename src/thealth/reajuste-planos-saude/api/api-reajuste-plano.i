@@ -17,12 +17,24 @@ define variable TIPO_PESSOA_FISICA          as   character  init 'F'    no-undo.
 define variable TIPO_PESSOA_JURIDICA        as   character  init 'J'    no-undo.
 define variable TIPO_PESSOA_AMBOS           as   character  init 'A'    no-undo.
 
+define variable ORIGEM_HISTORICO_GERAR_EVENTO
+                                            as   character  init 'Gerar'
+                                                                        no-undo.
+                                                                        
+define variable ORIGEM_HISTORICO_REMOVER_EVENTO
+                                            as   character  init 'Remover'
+                                                                        no-undo.
 
 define variable EV_API_REAJUSTE_PLANO_CONSULTAR 
                                             as   character  init 'EV_API_REAJUSTE_PLANO_CONSULTAR'
                                                                         no-undo.
+
 define variable EV_API_REAJUSTE_PLANO_CRIAR_EVENTO 
                                             as   character  init 'EV_API_REAJUSTE_PLANO_CRIAR_EVENTO'
+                                                                        no-undo.
+
+define variable EV_API_REAJUSTE_PLANO_ELIMINAR_EVENTO
+                                            as   character  init 'EV_API_REAJUSTE_PLANO_ELIMINAR_EVENTO'
                                                                         no-undo.
 
 define temp-table temp-contrato             no-undo
@@ -95,6 +107,7 @@ define temp-table temp-valor-beneficiario-mes   no-undo
     field dc-valor-parcela                  as   decimal
     field in-faixa-etaria                   as   integer
     field in-idade                          as   integer
+    field ch-periodo-evento-criado          as   character  label 'Per¡odo cobran‡a'
     index idx1
           as primary
           as unique
@@ -129,6 +142,29 @@ define temp-table temp-exportar             no-undo
           in-usuario
     . 
 
+
+
+define temp-table temp-historico            no-undo
+    field in-id-historico                   as   integer    label 'Id'              serialize-hidden
+    field in-modalidade                     as   integer    label 'Modalidade'
+    field in-termo                          as   integer    label 'Termo'                                           
+    field in-quantidade-parcelas            as   integer    label 'Qt. parcelas'
+    field dc-valor-cobrado                  as   decimal    label 'Valor'
+    field ch-periodo-reajuste               as   character  label 'Per¡odo'    
+    field ch-origem-historico               as   character  label 'Origem'
+    field dt-ocorrencia                     as   datetime   label 'Ocorrˆncia'      format '99/99/9999 HH:MM:SS'
+    field ch-usuario                        as   character  label 'Usu rio'         format 'x(20)'
+    index idx1
+          as unique
+          in-id-historico
+    index idx2
+          as primary
+          as unique
+          in-modalidade
+          in-termo
+          ch-periodo-reajuste
+          ch-origem-historico          
+    .
 
 
      

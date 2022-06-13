@@ -19,6 +19,7 @@ block-level on error undo, throw.
 using Progress.Lang.AppError from propath.
 using Progress.Json.ObjectModel.JsonObject from propath.
 using Progress.Json.ObjectModel.JsonArray from propath.
+using Progress.Json.ObjectModel.ObjectModelParser from propath.
 
 /* ********************  Preprocessor Definitions  ******************** */
 {thealth/reajuste-planos-saude/api/api-reajuste-plano.i}
@@ -28,6 +29,7 @@ using Progress.Json.ObjectModel.JsonArray from propath.
 {thealth/libs/dates.i}
  
 define variable hd-api-config               as   handle     no-undo.
+define variable lg-cancelar-pesquisa        as   logical    no-undo.
 
 define new global shared variable v_cod_usuar_corren as character
                           format "x(12)":U label "Usu rio Corrente"
@@ -78,12 +80,16 @@ procedure buscarContratos:
     define variable hd-query                            as   handle     no-undo.
     define variable in-mes-reaj-filtro                  as   integer    no-undo.
     define variable in-ano-reaj-filtro                  as   integer    no-undo.
+    define variable dt-corte                            as   date       no-undo.
         
     empty temp-table temp-contrato.
     empty temp-table temp-valor-beneficiario.
     
-    assign in-mes-fat   = integer (substring (ch-periodo-fat, 1, 2))
-           in-ano-fat   = integer (substring (ch-periodo-fat, 4, 4))           
+    assign in-mes-fat           = integer (substring (ch-periodo-fat, 1, 2))
+           in-ano-fat           = integer (substring (ch-periodo-fat, 4, 4))
+           in-mes-reaj-filtro   = integer (substring (ch-periodo-reajuste, 1, 2))
+           in-ano-reaj-filtro   = integer (substring (ch-periodo-reajuste, 4))               
+           dt-corte             = add-interval (ultimoDiaMes(in-ano-reaj-filtro, in-mes-reaj-filtro), -1, 'year')       
            .
     
     assign ch-query = substitute ("
@@ -116,7 +122,8 @@ procedure buscarContratos:
          and propost.cd-convenio       >= &5    ~n
          and propost.cd-convenio       <= &6,   ~n
        first ter-ade no-lock                    ~n
-          of propost,                           ~n
+          of propost                            ~n
+       where ter-ade.dt-inicio         <= &7,   ~n
        first contrat no-lock                    ~n
        where contrat.cd-contratante     = propost.cd-contratante",
                                               in-contratante-ini,
@@ -124,7 +131,8 @@ procedure buscarContratos:
                                               in-termo-ini,      
                                               in-termo-fim,
                                               in-convenio-ini,   
-                                              in-convenio-fim)
+                                              in-convenio-fim,
+                                              dt-corte)
             .
                                                                                            
     if ch-tipo-pessoa  <> TIPO_PESSOA_AMBOS
@@ -133,23 +141,24 @@ procedure buscarContratos:
         assign ch-query = ch-query + substitute (" and contrat.in-tipo-pessoa = &1", ch-tipo-pessoa).
     end.                                              
                                               .
+
     log-manager:write-message (substitute ("query a ser executada: &1", ch-query), "DEBUG") no-error.
     create query hd-query.
     hd-query:set-buffers (buffer propost:handle, buffer ter-ade:handle, buffer contrat:handle).
     hd-query:query-prepare (ch-query).                                          
     hd-query:query-open().
-
+    
     repeat:
         
         hd-query:get-next.
-        if hd-query:query-off-end then leave.
-        
+        if hd-query:query-off-end then leave.        
         
         publish EV_API_REAJUSTE_PLANO_CONSULTAR (input  propost.cd-modalidade,
                                                  input  propost.nr-ter-adesao).
                                     
         if available buf-contrat 
         then release buf-contrat.
+        
         if propost.cd-contrat-origem    > 0
         then do:
             
@@ -157,6 +166,9 @@ procedure buscarContratos:
                where buf-contrat.cd-contratante = propost.cd-contrat-origem:                                                   
            end.
         end.
+        
+        if month (ter-ade.dt-inicio)     <> in-mes-reaj-filtro
+        then next.
                                                  
         create temp-contrato. 
         assign temp-contrato.in-modalidade          = propost.cd-modalidade
@@ -173,12 +185,15 @@ procedure buscarContratos:
                lg-usar-regra-valor-mes-ref          = usarRegraValorMesReferencia (propost.cd-modalidade,
                                                                                    propost.nr-ter-adesao )
                .
-        
+
         find first reajuste-contrato no-lock
              where reajuste-contrato.in-modalidade  = propost.cd-modalidade
                and reajuste-contrato.in-termo       = propost.nr-ter-adesao
-               and reajuste-contrato.in-ano-competencia
-                                                    = in-ano-competencia
+               and reajuste-contrato.ch-periodo-reajuste
+                                                    = ch-periodo-reajuste
+               and reajuste-contrato.ch-origem-historico
+                                                    = ORIGEM_HISTORICO_GERAR_EVENTO
+               and reajuste-contrato.lg-cancelado   = no
                    no-error.
                    
         if available reajuste-contrato
@@ -190,13 +205,11 @@ procedure buscarContratos:
                    .
         end.                    
                    
-
-
         for last histabpreco no-lock
        use-index histabpr1
            where histabpreco.cd-modalidade  = propost.cd-modalidade
              and histabpreco.nr-proposta    = propost.nr-proposta
-             and histabpreco.aa-reajuste    = in-ano-competencia:
+             and histabpreco.aa-reajuste    = integer (substring (ch-periodo-reajuste, 4)):
                  
             log-manager:write-message (substitute ('LOG -> alterado dados do reajuste para &1, &2/&3',
                                                    histabpreco.pc-reajuste,
@@ -210,27 +223,16 @@ procedure buscarContratos:
                    .
         end.
         
-        assign in-mes-reaj-filtro                           = integer (substring (ch-periodo-reajuste, 1, 2))
-               in-ano-reaj-filtro                           = integer (substring (ch-periodo-reajuste, 4, 4))
-               .
-               
-        if month (propost.dt-proposta) <> in-mes-reaj-filtro
-        then do:
-            
-            delete temp-contrato.
-            next.
-        end.
-                       
         assign temp-contrato.ch-ultimo-reajuste             = substitute ('&1/&2', string (in-mes-ult-reaj, '99'), string (in-ano-ult-reaj, '9999'))
                temp-contrato.dc-percentual-ultimo-reajuste  = dc-perc-ult-reaj
                .
                
-        if in-mes-ult-reaj  = in-mes-reaj-filtro
-        or in-ano-ult-reaj  = in-ano-reaj-filtro
+        if  in-mes-ult-reaj = in-mes-reaj-filtro
+        and in-ano-ult-reaj = in-ano-reaj-filtro
         then do:
-            
-            assign temp-contrato.lg-possui-reajuste-ano-ref = yes
-                   .
+
+        assign temp-contrato.lg-possui-reajuste-ano-ref = yes
+               .
 
             run buscarFaturamentoContrato (input  propost.cd-modalidade,
                                            input  propost.nr-ter-adesao,
@@ -238,12 +240,40 @@ procedure buscarContratos:
                                            input  in-mes-ult-reaj,
                                            input  in-ano-fat,
                                            input  in-mes-fat).    
-        end.            
-        
+        end.
+
                
     end.
 end procedure.
 
+
+procedure buscarDetalhamentoHistorico:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input  parameter in-id-historico             as   integer    no-undo.
+    define output parameter lo-detalhe                  as   longchar   no-undo.
+
+    define variable jObj-detalhes   as   JsonObject         no-undo.
+    define variable jObj-parser     as   ObjectModelParser  no-undo.
+    
+    find first reajuste-contrato no-lock
+         where reajuste-contrato.in-id      = in-id-historico 
+               .
+
+    assign jObj-detalhes    = new JsonObject ()  
+           jObj-parser      = new ObjectModelParser ()
+           .
+           
+    copy-lob reajuste-contrato.ch-detalhamento to lo-detalhe convert target codepage 'UTF-8'  .           
+        
+    assign jObj-detalhes = cast (jObj-parser:parse (lo-detalhe), JsonObject).
+                  
+    jObj-detalhes:write (lo-detalhe, yes).                           
+    
+
+end procedure.
 
 procedure buscarFaturamentoContrato private:
 /*------------------------------------------------------------------------------
@@ -498,6 +528,50 @@ procedure buscarFaturamentoContrato private:
     
 end procedure.
 
+
+
+procedure buscarHistoricoContrato:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input        parameter in-modalidade         as   integer    no-undo.
+    define input        parameter in-termo              as   integer    no-undo.
+    define input-output parameter table                 for  temp-historico.
+    
+    for each reajuste-contrato no-lock
+       where reajuste-contrato.in-modalidade    = in-modalidade
+         and reajuste-contrato.in-termo         = in-termo:
+
+        publish EV_API_REAJUSTE_PLANO_CONSULTAR (reajuste-contrato.in-modalidade,
+                                                 reajuste-contrato.in-termo).
+        process events.
+             
+        find first temp-historico
+             where temp-historico.in-id-historico       = reajuste-contrato.in-id
+                   no-error.
+                   
+        if not available temp-historico
+        then do:
+            
+            create temp-historico.
+            assign temp-historico.in-id-historico       = reajuste-contrato.in-id
+                   temp-historico.ch-origem-historico   = reajuste-contrato.ch-origem-historico
+                   temp-historico.ch-periodo-reajuste   = reajuste-contrato.ch-periodo-reajuste
+                   temp-historico.dc-valor-cobrado      = reajuste-contrato.dc-valor-cobrado
+                   temp-historico.in-modalidade         = reajuste-contrato.in-modalidade
+                   temp-historico.in-quantidade-parcelas    
+                                                        = reajuste-contrato.in-quantidade-parcelas
+                   temp-historico.in-termo              = reajuste-contrato.in-termo
+                   temp-historico.ch-usuario            = reajuste-contrato.ch-usuario
+                   temp-historico.dt-ocorrencia         = reajuste-contrato.dt-criacao
+                   
+                   .
+        end.                   
+    end.             
+
+end procedure.
+
 procedure criarEventoProgramado private:
 /*------------------------------------------------------------------------------
  Purpose:
@@ -512,10 +586,9 @@ procedure criarEventoProgramado private:
     define input  parameter dc-valor                    as   decimal    no-undo.
     define input  parameter ch-mensagem                 as   character  no-undo.
     
-    define buffer buf-propost for propost.
+    define buffer buf-propost   for  propost.
     
     do transaction on error undo, throw:
-
         
         find first event-progdo-bnfciar exclusive-lock 
              where event-progdo-bnfciar.cd-modalidade   = in-modalidade
@@ -663,6 +736,9 @@ procedure criarEventosContratos:
                    dc-valor-cobrado         = 0
                    .
                    
+            define variable ch-per-ini as character no-undo.
+            define variable ch-per-fim as character no-undo.                   
+                   
             for each temp-valor-beneficiario
                where temp-valor-beneficiario.in-modalidade      = temp-contrato.in-modalidade
                  and temp-valor-beneficiario.in-termo           = temp-contrato.in-termo
@@ -673,11 +749,11 @@ procedure criarEventosContratos:
                                                        temp-contrato.in-termo,
                                                        temp-valor-beneficiario.in-usuario), "DEBUG") no-error.                     
 
-                assign in-ano   = in-ano-fat
-                       in-mes   = in-mes-fat
+                assign in-ano       = in-ano-fat
+                       in-mes       = in-mes-fat
                        .
 
-                for each temp-valor-beneficiario-mes no-lock
+                for each temp-valor-beneficiario-mes 
                    where temp-valor-beneficiario-mes.in-modalidade      = temp-valor-beneficiario.in-modalidade  
                      and temp-valor-beneficiario-mes.in-termo           = temp-valor-beneficiario.in-termo
                      and temp-valor-beneficiario-mes.in-usuario         = temp-valor-beneficiario.in-usuario
@@ -685,6 +761,10 @@ procedure criarEventosContratos:
                          
                     assign in-quantidade-parcelas   = in-quantidade-parcelas + 1
                            dc-valor-cobrado         = dc-valor-cobrado + temp-valor-beneficiario-mes.dc-valor-parcela
+                           temp-valor-beneficiario-mes.ch-periodo-evento-criado
+                                                    = substitute ('&1/&2', 
+                                                                  string (in-mes, '99'),
+                                                                  string (in-ano, '9999'))
                            .                         
                          
                     run criarEventoProgramado (input  temp-valor-beneficiario-mes.in-modalidade,
@@ -707,6 +787,7 @@ procedure criarEventosContratos:
                         assign in-ano   = in-ano + 1
                                in-mes   = 1.
                     end.
+               
                 end.                     
             end.                                        
         
@@ -715,7 +796,26 @@ procedure criarEventosContratos:
                                                    temp-contrato.in-termo), "DEBUG") no-error.
                                                    
             run gerarJson (output lo-data-json).
-                                                   
+            
+            
+            for first temp-valor-beneficiario-mes
+                where temp-valor-beneficiario-mes.in-modalidade = temp-contrato.in-modalidade               
+                  and temp-valor-beneficiario-mes.in-termo      = temp-contrato.in-termo
+                   by temp-valor-beneficiario-mes.in-ano
+                   by temp-valor-beneficiario-mes.in-mes:
+                       
+                assign ch-per-ini   = temp-valor-beneficiario-mes.ch-periodo-evento-criado.
+            end.                       
+
+            for last temp-valor-beneficiario-mes
+               where temp-valor-beneficiario-mes.in-modalidade  = temp-contrato.in-modalidade               
+                 and temp-valor-beneficiario-mes.in-termo       = temp-contrato.in-termo
+                  by temp-valor-beneficiario-mes.in-ano
+                  by temp-valor-beneficiario-mes.in-mes:
+                      
+                assign ch-per-fim   = temp-valor-beneficiario-mes.ch-periodo-evento-criado.
+            end.                       
+
             create reajuste-contrato.
             assign reajuste-contrato.in-id                  = next-value (seq-reajuste-contrato)
                    reajuste-contrato.in-modalidade          = temp-contrato.in-modalidade
@@ -725,6 +825,10 @@ procedure criarEventosContratos:
                    reajuste-contrato.in-quantidade-parcelas = in-quantidade-parcelas
                    reajuste-contrato.dc-valor-cobrado       = dc-valor-cobrado
                    reajuste-contrato.ch-detalhamento        = lo-data-json
+                   reajuste-contrato.ch-periodo-reajuste    = temp-contrato.ch-ultimo-reajuste
+                   reajuste-contrato.ch-origem-historico    = ORIGEM_HISTORICO_GERAR_EVENTO
+                   reajuste-contrato.ch-periodo-inicial-cob = ch-per-ini
+                   reajuste-contrato.ch-periodo-final-cob   = ch-per-fim
                    .
          
         end.                
@@ -735,6 +839,121 @@ procedure criarEventosContratos:
         end catch.
     end.
     
+
+end procedure.
+
+procedure eliminarEventos:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input  parameter table           for  temp-contrato.
+
+    define variable in-ano                  as   integer    no-undo.
+    define variable in-mes                  as   integer    no-undo.
+    define variable in-ano-fim              as   integer    no-undo.
+    define variable in-mes-fim              as   integer    no-undo.
+    define variable in-ano-ini              as   integer    no-undo.
+    define variable in-mes-ini              as   integer    no-undo.
+    define variable lo-parametro            as   longchar   no-undo.
+    define variable in-evento               as   integer    no-undo.
+    
+    do transaction on error undo, throw:
+        
+        if not valid-handle (hd-api-config)
+        then run thealth/libs/api-mantem-parametros.p persistent set hd-api-config.
+                
+        run buscarParametro in hd-api-config (input  "th-gps-param",
+                                              input  "reajuste-plano", 
+                                              input  ?,
+                                              input  PARAM_EVENTO_REAJUSTE,   
+                                              output lo-parametro) no-error.
+                                              
+        if lo-parametro = ?
+        or lo-parametro = ''
+        then undo, throw new AppError('Evento para cobran‡a nÆo parametrizado.~nAcesse os parƒmetros do programa para registrar o evento').                                              
+                                              
+        assign in-evento    = integer (lo-parametro).             
+        
+        for each temp-contrato 
+           where temp-contrato.lg-marcado:
+
+            find first reajuste-contrato no-lock
+                 where reajuste-contrato.in-modalidade          = temp-contrato.in-modalidade
+                   and reajuste-contrato.in-termo               = temp-contrato.in-termo
+                   and reajuste-contrato.ch-periodo-reajuste    = temp-contrato.ch-ultimo-reajuste
+                   and reajuste-contrato.ch-origem-historico    = ORIGEM_HISTORICO_GERAR_EVENTO
+                       no-error.
+                   
+            if not available reajuste-contrato
+            then do:
+                
+                next.
+            end.     
+            
+            assign in-ano-ini   = integer (substring (reajuste-contrato.ch-periodo-inicial-cob, 4))                         
+                   in-mes-ini   = integer (substring (reajuste-contrato.ch-periodo-inicial-cob, 1, 2))
+                   in-ano-fim   = integer (substring (reajuste-contrato.ch-periodo-final-cob, 4))                         
+                   in-mes-fim   = integer (substring (reajuste-contrato.ch-periodo-final-cob, 1, 2))
+                   in-ano       = in-ano-ini
+                   in-mes       = in-mes-ini
+                   .
+                   
+            find current reajuste-contrato exclusive-lock.
+            
+            assign reajuste-contrato.lg-cancelado   = yes.                   
+
+            repeat:
+                
+                for each event-progdo-bnfciar exclusive-lock
+                   where event-progdo-bnfciar.cd-modalidade = temp-contrato.in-modalidade
+                     and event-progdo-bnfciar.nr-ter-adesao = temp-contrato.in-termo
+                     and event-progdo-bnfciar.cd-usuario    > 0
+                     and event-progdo-bnfciar.aa-referencia = in-ano
+                     and event-progdo-bnfciar.mm-referencia = in-mes
+                     and event-progdo-bnfciar.cd-evento     = in-evento:
+                         
+                    publish EV_API_REAJUSTE_PLANO_ELIMINAR_EVENTO (input  event-progdo-bnfciar.cd-modalidade,       
+                                                                   input  event-progdo-bnfciar.nr-ter-adesao,
+                                                                   input  event-progdo-bnfciar.cd-usuario,
+                                                                   input  event-progdo-bnfciar.cd-evento,
+                                                                   input  event-progdo-bnfciar.vl-evento,
+                                                                   input  substitute ("&1/&2",
+                                                                                      string (event-progdo-bnfciar.mm-referencia, '99'),
+                                                                                      string (event-progdo-bnfciar.aa-referencia, '9999')))
+                            .
+                            
+                    delete event-progdo-bnfciar.                            
+                end.
+                                      
+                assign in-mes   =  in-mes + 1.
+                
+                if in-mes > 12
+                then 
+                    assign in-ano = in-ano + 1
+                           in-mes = 1.
+                           
+                if integer (string (in-ano, '9999') + string (in-mes, '99')) > integer (string (in-ano-fim, '9999') + string (in-mes-fim, '99'))
+                then leave.                            
+            end.        
+            
+            create reajuste-contrato.
+            assign reajuste-contrato.in-id                  = next-value (seq-reajuste-contrato)
+                   reajuste-contrato.in-modalidade          = temp-contrato.in-modalidade
+                   reajuste-contrato.in-termo               = temp-contrato.in-termo
+                   reajuste-contrato.ch-usuario             = v_cod_usuar_corren
+                   reajuste-contrato.dt-criacao             = now
+                   reajuste-contrato.ch-periodo-reajuste    = temp-contrato.ch-ultimo-reajuste
+                   reajuste-contrato.ch-origem-historico    = ORIGEM_HISTORICO_REMOVER_EVENTO
+                   reajuste-contrato.ch-periodo-inicial-cob = substitute ('&1/&2', 
+                                                                          string (in-mes-ini, '99'),
+                                                                          string (in-ano-ini, '9999'))
+                   reajuste-contrato.ch-periodo-final-cob   = substitute ('&1/&2', 
+                                                                          string (in-mes-fim, '99'),
+                                                                          string (in-ano-fim, '9999'))
+                   .
+        end.
+    end.
 
 end procedure.
 

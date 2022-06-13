@@ -124,10 +124,20 @@ define button buttonDetalhar
      label "Detalhar" 
      size 7.2 by 1.71 tooltip "Detalhar".
 
+define button buttonElimininarEventos 
+     image-up file "thealth/assets/cancel_24_24.jpg":U no-focus flat-button
+     label "" 
+     size 7.2 by 1.71 tooltip "Eliminar eventos".
+
 define button buttonExpotar 
      image-up file "thealth/assets/excel_24_24.jpg":U no-focus flat-button
      label "" 
      size 7.2 by 1.71 tooltip "Exportar".
+
+define button buttonHistorico 
+     image-up file "thealth/assets/history_24_24.jpg":U no-focus flat-button
+     label "" 
+     size 7.2 by 1.71 tooltip "Eliminar eventos".
 
 define button buttonParametros 
      image-up file "thealth/assets/process2_24_24.jpg":U no-focus flat-button
@@ -296,23 +306,13 @@ define frame frameDefault
          size 140.6 by 23.24
          bgcolor 15 font 1 widget-id 100.
 
-define frame frameCorpo
-     buttonAgendarEventos at row 5.48 col 132.2 widget-id 32
-     checkOcultarSemReajuste at row 1.05 col 55 widget-id 50
-     buttonExpotar at row 7.14 col 132.2 widget-id 36
-     radioEdicaoBrowse at row 1.14 col 101.6 no-label widget-id 12
-     browseDados at row 2.19 col 1 widget-id 500
-     checkMarcarTodos at row 2.24 col 1.6 widget-id 34
-     buttonDetalhar at row 3.81 col 132.2 widget-id 30
-     buttonParametros at row 2.14 col 132.2 widget-id 28
-     buttonBrowseLimpar at row 1 col 133.2 widget-id 24
-     buttonConfigBrowse at row 1 col 136 widget-id 26
-    with 1 down keep-tab-order overlay 
+define frame frameRodape
+     buttonSair at row 1.24 col 124 widget-id 2
+    with 1 down no-box keep-tab-order overlay 
          side-labels no-underline three-d 
-         at col 2 row 7.19
-         size 139 by 15.24
-         bgcolor 15 font 1
-         title "" widget-id 300.
+         at col 2 row 22.48
+         size 139 by 1.67
+         bgcolor 15 font 1 widget-id 400.
 
 define frame frameSuperior
      buttonPesquisar at row 1.48 col 128 widget-id 32
@@ -340,13 +340,25 @@ define frame frameSuperior
          size 140 by 6.19
          bgcolor 15 font 1 widget-id 200.
 
-define frame frameRodape
-     buttonSair at row 1.24 col 124 widget-id 2
-    with 1 down no-box keep-tab-order overlay 
+define frame frameCorpo
+     buttonElimininarEventos at row 8.86 col 132 widget-id 52
+     buttonHistorico at row 10.52 col 132 widget-id 54
+     buttonAgendarEventos at row 5.48 col 132.2 widget-id 32
+     checkOcultarSemReajuste at row 1.05 col 55 widget-id 50
+     radioEdicaoBrowse at row 1.14 col 101.6 no-label widget-id 12
+     browseDados at row 2.19 col 1 widget-id 500
+     buttonExpotar at row 7.14 col 132.2 widget-id 36
+     checkMarcarTodos at row 2.24 col 1.6 widget-id 34
+     buttonDetalhar at row 3.81 col 132.2 widget-id 30
+     buttonParametros at row 2.14 col 132.2 widget-id 28
+     buttonBrowseLimpar at row 1 col 133.2 widget-id 24
+     buttonConfigBrowse at row 1 col 136 widget-id 26
+    with 1 down keep-tab-order overlay 
          side-labels no-underline three-d 
-         at col 2 row 22.48
-         size 139 by 1.67
-         bgcolor 15 font 1 widget-id 400.
+         at col 2 row 7.19
+         size 139 by 15.24
+         bgcolor 15 font 1
+         title "" widget-id 300.
 
 
 /* *********************** Procedure Settings ************************ */
@@ -551,11 +563,33 @@ end.
 &ANALYZE-RESUME
 
 
+&Scoped-define SELF-NAME buttonElimininarEventos
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonElimininarEventos winMain
+on choose of buttonElimininarEventos in frame frameCorpo
+do:
+    run acaoEliminar.  
+end.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
 &Scoped-define SELF-NAME buttonExpotar
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonExpotar winMain
 on choose of buttonExpotar in frame frameCorpo
 do:
     run acaoExportar.  
+end.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
+&Scoped-define SELF-NAME buttonHistorico
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonHistorico winMain
+on choose of buttonHistorico in frame frameCorpo
+do:
+    run acaoHistorico.  
 end.
 
 /* _UIB-CODE-BLOCK-END */
@@ -607,7 +641,6 @@ end.
 
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
-
 
 
 &Scoped-define FRAME-NAME frameDefault
@@ -721,6 +754,85 @@ end procedure.
 
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
+
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoEliminar winMain
+procedure acaoEliminar private:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define variable in-conta            as   integer    no-undo.
+    define variable lg-confirmar        as   logical    no-undo.
+    
+    do transaction on error undo, return:
+        
+        
+        for each temp-contrato
+           where temp-contrato.lg-marcado
+             and temp-contrato.lg-eventos-gerados:
+            
+            assign in-conta = in-conta + 1.                             
+        end.                 
+        
+        if in-conta = 0
+        then do:
+            
+            message 'Selecione ao menos um contrato com eventos gerados para cancelar'
+            view-as alert-box information buttons ok.
+            return.
+        end.
+        
+        message substitute ('Confirma remover os eventos gerados para &1 contrato&2?',
+                            in-conta,
+                            if in-conta = 1 then '' else 's')
+        view-as alert-box question buttons yes-no update lg-confirmar.
+        
+        if not lg-confirmar
+        then return.
+        
+        subscribe to EV_API_REAJUSTE_PLANO_ELIMINAR_EVENTO in hd-api run-procedure 'eventoApiEliminar'.
+        
+        run thealth/libs/status-processamento.w persistent set hd-status (input  'Eliminando eventos',
+                                                                          input  no).
+                                                                          
+        run eliminarEventos in hd-api (input  table temp-contrato by-reference).
+        
+        message 'Eventos removidos com sucesso'
+        view-as alert-box information button ok.
+        
+        apply 'choose' to buttonPesquisar in frame frameSuperior.
+                                                                          
+        catch cs-erro as Progress.Lang.Error : 
+            
+            if cs-erro:GetMessageNum(1) = 1
+            then do:
+                
+                message substitute ("Ops...~nOcorreu um erro ao eliminar os eventos.~n&1",
+                                    cs-erro:GetMessage(1))
+                view-as alert-box error buttons ok.
+            end.
+            else do:
+            
+                message substitute ("Ops...~nOcorreu um erro ao eliminar os eventos.~nInforme a TI com um print desta mensagem.~n&1",
+                                    cs-erro:GetMessage(1))
+                view-as alert-box error buttons ok.
+            end.    
+        end catch.                                                                          
+        finally:
+            
+            delete object hd-status no-error.
+            unsubscribe to EV_API_REAJUSTE_PLANO_ELIMINAR_EVENTO in hd-api.
+        end.
+        
+    end.
+
+end procedure.
+    
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoExportar winMain 
 procedure acaoExportar private :
@@ -857,17 +969,18 @@ procedure acaoGerarEventos private :
     then return.
     
     do on error undo, return:
+        
 
         subscribe to EV_API_REAJUSTE_PLANO_CRIAR_EVENTO in hd-api run-procedure 'eventoApiCriar'.
+
+        run thealth/libs/status-processamento.w persistent set hd-status (input  'Criando eventos', 
+                                                                          input  no).
+
         
         assign in-ano-fat   = integer (substring (textPeriodoFat:screen-value, 4, 4))
                in-mes-fat   = integer (substring (textPeriodoFat:screen-value, 1, 2)) 
                .
-               
-        temp-table temp-contrato:write-json ('file', 'c:/temp/casali/temp-contrato.json', yes).
-        temp-table temp-valor-beneficiario:write-json ('file', 'c:/temp/casali/temp-valor-beneficiario.json', yes).
-        temp-table temp-valor-beneficiario-mes:write-json ('file', 'c:/temp/casali/temp-valor-beneficiario-mes.json', yes).               
-                                                                
+                                                                               
         run criarEventosContratos in hd-api (input              in-ano-fat,
                                              input              in-mes-fat,
                                              input              textPeriodoReajuste:screen-value,
@@ -875,7 +988,12 @@ procedure acaoGerarEventos private :
                                              input-output table temp-valor-beneficiario by-reference,
                                              input-output table temp-valor-beneficiario-mes by-reference)
             . 
+            
+        message 'Eventos gerados com sucesso'
+        view-as alert-box information buttons ok.            
                  
+        apply 'choose' to buttonPesquisar in frame frameSuperior.
+
         catch cs-erro as Progress.Lang.Error : 
             
             if cs-erro:GetMessageNum(1) = 1
@@ -893,7 +1011,8 @@ procedure acaoGerarEventos private :
             end.    
         end catch.
         finally:
-            unsubscribe to EV_API_REAJUSTE_PLANO_CRIAR_EVENTO in hd-api.    
+            unsubscribe to EV_API_REAJUSTE_PLANO_CRIAR_EVENTO in hd-api.
+            delete object hd-status no-error.    
         end finally.
     end.
 
@@ -901,6 +1020,44 @@ end procedure.
 
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
+
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoHistorico winMain
+procedure acaoHistorico private:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    do on error undo, return:
+        
+        run thealth/reajuste-planos-saude/interface/reajuste-plano-historico.w (input              temp-contrato.in-modalidade,
+                                                                                input              temp-contrato.in-termo,
+                                                                                input-output table temp-contrato by-reference).
+        
+        catch cs-erro as Progress.Lang.Error : 
+            
+            if cs-erro:GetMessageNum(1) = 1
+            then do:
+                
+                message substitute ("Ops...~nOcorreu um erro ao abrir o hist¢rico.~n&1",
+                                    cs-erro:GetMessage(1))
+                view-as alert-box error buttons ok.
+            end.
+            else do:
+            
+                message substitute ("Ops...~nOcorreu um erro ao abrir o hist¢rico.~nInforme a TI com um print desta mensagem.~n&1",
+                                    cs-erro:GetMessage(1))
+                view-as alert-box error buttons ok.
+            end.    
+        end catch.
+    end.
+
+end procedure.
+    
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoMarcarTodos winMain 
 procedure acaoMarcarTodos private :
@@ -966,6 +1123,10 @@ procedure acaoPesquisar private :
         
         run thealth/libs/status-processamento.w persistent set hd-status (input  "Processando", no).
         
+        assign checkMarcarTodos:checked in frame frameCorpo = no.
+        apply 'value-changed' to checkMarcarTodos.
+        process events.
+        
         subscribe to EV_API_REAJUSTE_PLANO_CONSULTAR in hd-api run-procedure "eventoApiConsultar".
      
         run buscarContratos in hd-api (input        integer (textModalidadeIni:screen-value in frame frameSuperior),
@@ -1010,7 +1171,7 @@ procedure acaoPesquisar private :
         finally:
             
             unsubscribe to EV_API_REAJUSTE_PLANO_CONSULTAR in hd-api.
-            delete object hd-status.
+            delete object hd-status no-error.
         end.
     end.
 
@@ -1066,9 +1227,10 @@ procedure enable_UI :
   {&OPEN-BROWSERS-IN-QUERY-frameSuperior}
   display checkOcultarSemReajuste radioEdicaoBrowse checkMarcarTodos 
       with frame frameCorpo in window winMain.
-  enable buttonAgendarEventos checkOcultarSemReajuste buttonExpotar 
-         radioEdicaoBrowse browseDados checkMarcarTodos buttonDetalhar 
-         buttonParametros buttonBrowseLimpar buttonConfigBrowse 
+  enable buttonElimininarEventos buttonHistorico buttonAgendarEventos 
+         checkOcultarSemReajuste radioEdicaoBrowse browseDados buttonExpotar 
+         checkMarcarTodos buttonDetalhar buttonParametros buttonBrowseLimpar 
+         buttonConfigBrowse 
       with frame frameCorpo in window winMain.
   {&OPEN-BROWSERS-IN-QUERY-frameCorpo}
   enable buttonSair 
@@ -1097,6 +1259,36 @@ end procedure.
 
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
+
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE eventoApiEliminar winMain
+procedure eventoApiEliminar:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input  parameter in-modalidade           as   integer    no-undo.
+    define input  parameter in-termo                as   integer    no-undo.
+    define input  parameter in-evento               as   integer    no-undo.
+    define input  parameter in-usuario              as   integer    no-undo.
+    define input  parameter dc-valor                as   decimal    no-undo.
+    define input  parameter ch-periodo              as   character  no-undo.
+    
+    run mostrarMensagem in hd-status (input  substitute ('Removendo evento &4 do benefici rio &1/&2/&3, no valor de R$ &5, per¡odo &6',
+                                                         in-modalidade,
+                                                         in-termo,
+                                                         in-usuario,
+                                                         in-evento,
+                                                         dc-valor,
+                                                         ch-periodo)) no-error.
+    process events.
+
+end procedure.
+    
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE initializarInterface winMain 
 procedure initializarInterface private :
