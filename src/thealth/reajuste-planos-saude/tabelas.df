@@ -1,3 +1,125 @@
+ADD TABLE "reajuste-contrato"
+  AREA "Schema Area"
+  DUMP-NAME "reajuste-contrato"
+
+ADD FIELD "in-id" OF "reajuste-contrato" AS integer 
+  FORMAT "99999999"
+  INITIAL "0"
+  POSITION 2
+  MAX-WIDTH 4
+  ORDER 10
+
+ADD FIELD "dt-criacao" OF "reajuste-contrato" AS datetime 
+  FORMAT "99/99/9999 HH:MM:SS.SSS"
+  INITIAL ?
+  POSITION 3
+  MAX-WIDTH 8
+  ORDER 20
+
+ADD FIELD "ch-usuario" OF "reajuste-contrato" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 4
+  MAX-WIDTH 40
+  ORDER 30
+
+ADD FIELD "in-modalidade" OF "reajuste-contrato" AS integer 
+  FORMAT "99"
+  INITIAL "0"
+  POSITION 5
+  MAX-WIDTH 4
+  ORDER 40
+
+ADD FIELD "in-termo" OF "reajuste-contrato" AS integer 
+  FORMAT "99999999"
+  INITIAL "0"
+  POSITION 6
+  MAX-WIDTH 4
+  ORDER 50
+
+ADD FIELD "lg-gerado-eventos" OF "reajuste-contrato" AS logical 
+  FORMAT "yes/no"
+  INITIAL "no"
+  POSITION 7
+  MAX-WIDTH 1
+  ORDER 60
+
+ADD FIELD "in-quantidade-parcelas" OF "reajuste-contrato" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 8
+  MAX-WIDTH 4
+  ORDER 70
+
+ADD FIELD "dc-valor-cobrado" OF "reajuste-contrato" AS decimal 
+  FORMAT ">>>,>>9.99"
+  INITIAL "0"
+  POSITION 9
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 80
+
+ADD FIELD "ch-detalhamento" OF "reajuste-contrato" AS clob 
+  FORMAT "x(8)"
+  INITIAL ?
+  POSITION 10
+  LOB-AREA "Schema Area"
+  LOB-BYTES 104857600
+  LOB-SIZE 100M
+  CLOB-CODEPAGE "iso8859-1"
+  CLOB-COLLATION "basic"
+  CLOB-TYPE 1
+  ORDER 90
+
+ADD FIELD "ch-periodo-reajuste" OF "reajuste-contrato" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 12
+  MAX-WIDTH 16
+  ORDER 100
+
+ADD FIELD "ch-origem-historico" OF "reajuste-contrato" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 13
+  MAX-WIDTH 40
+  ORDER 110
+
+ADD FIELD "ch-periodo-inicial-cob" OF "reajuste-contrato" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 14
+  MAX-WIDTH 16
+  ORDER 120
+
+ADD FIELD "ch-periodo-final-cob" OF "reajuste-contrato" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 15
+  MAX-WIDTH 16
+  ORDER 130
+
+ADD FIELD "lg-cancelado" OF "reajuste-contrato" AS logical 
+  FORMAT "yes/no"
+  INITIAL "no"
+  POSITION 16
+  MAX-WIDTH 1
+  ORDER 140
+
+ADD INDEX "iidxprimary" ON "reajuste-contrato" 
+  AREA "Schema Area"
+  UNIQUE
+  PRIMARY
+  INDEX-FIELD "in-id" ASCENDING 
+
+ADD INDEX "idx1" ON "reajuste-contrato" 
+  AREA "Schema Area"
+  INDEX-FIELD "in-modalidade" ASCENDING 
+  INDEX-FIELD "in-termo" ASCENDING 
+  INDEX-FIELD "ch-periodo-reajuste" ASCENDING 
+  INDEX-FIELD "ch-origem-historico" ASCENDING 
+  INDEX-FIELD "lg-cancelado" ASCENDING 
+
 ADD TABLE "th-gps-param"
   AREA "Schema Area"
   DUMP-NAME "th-gps-param"
@@ -42,11 +164,14 @@ ADD INDEX "idx1" ON "th-gps-param"
   INDEX-FIELD "ch-programa" ASCENDING 
   INDEX-FIELD "ch-usuario" ASCENDING 
   INDEX-FIELD "ch-chave" ASCENDING 
-  
 
+ADD SEQUENCE "seq-reajuste-contrato"
+  INITIAL 0
+  INCREMENT 1
+  CYCLE-ON-LIMIT no
+  
 .
 PSC
-cpstream=ibm850
+cpstream=IBM850
 .
-0000001885
-  
+0000003558

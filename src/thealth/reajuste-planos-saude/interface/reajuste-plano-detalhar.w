@@ -12,7 +12,7 @@
   Description: 
  
   Input Parameters:
-      <none>
+      <none> 
 
   Output Parameters: 
       <none>
@@ -31,10 +31,10 @@ block-level on error undo, throw.
 {thealth/reajuste-planos-saude/api/api-reajuste-plano.i}
 {thealth/reajuste-planos-saude/interface/reajuste-plano.i}
 /* Parameters Definitions ---                                           */
-define input  parameter in-modalidade                   as   integer    no-undo.
-define input  parameter in-termo                        as   integer    no-undo.
-define input  parameter table                           for  temp-contrato.
-define input  parameter table                           for  temp-valor-beneficiario.
+define input        parameter in-modalidade                 as   integer    no-undo.
+define input        parameter in-termo                      as   integer    no-undo.
+define input-output parameter table                         for  temp-contrato.
+define input-output parameter table                         for  temp-valor-beneficiario.
 
 
 /* Local Variable Definitions ---                                       */

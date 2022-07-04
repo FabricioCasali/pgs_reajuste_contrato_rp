@@ -22,6 +22,14 @@ using Progress.Json.ObjectModel.JsonArray from propath.
 using Progress.Json.ObjectModel.ObjectModelParser from propath.
 
 /* ********************  Preprocessor Definitions  ******************** */
+
+/* ************************  Function Prototypes ********************** */
+
+
+function numeroParcelas returns integer private
+    (in-modalidade  as   integer,
+     in-termo       as   integer) forward.
+
 {thealth/reajuste-planos-saude/api/api-reajuste-plano.i}
 {thealth/reajuste-planos-saude/api/simular-faturamento.i}
 {thealth/reajuste-planos-saude/interface/reajuste-plano.i}
@@ -74,16 +82,18 @@ procedure buscarContratos:
     define variable dc-perc-ult-reaj                    as   decimal    no-undo.
     define variable in-mes-fat                          as   integer    no-undo.
     define variable in-ano-fat                          as   integer    no-undo.
-    define variable lg-usar-regra-valor-mes-ref         as   logical    no-undo.
     
     define variable ch-query                            as   character  no-undo.
     define variable hd-query                            as   handle     no-undo.
     define variable in-mes-reaj-filtro                  as   integer    no-undo.
     define variable in-ano-reaj-filtro                  as   integer    no-undo.
     define variable dt-corte                            as   date       no-undo.
+    define variable lg-filtro-mes-reaj                  as   logical    no-undo.
         
     empty temp-table temp-contrato.
     empty temp-table temp-valor-beneficiario.
+    empty temp-table temp-valor-beneficiario-mes.
+    empty temp-table temp-valor-faturado-mes.
     
     assign in-mes-fat           = integer (substring (ch-periodo-fat, 1, 2))
            in-ano-fat           = integer (substring (ch-periodo-fat, 4, 4))
@@ -130,7 +140,7 @@ procedure buscarContratos:
                                               in-contratante-fim,
                                               in-termo-ini,      
                                               in-termo-fim,
-                                              in-convenio-ini,   
+                                              in-convenio-ini,    
                                               in-convenio-fim,
                                               dt-corte)
             .
@@ -138,7 +148,7 @@ procedure buscarContratos:
     if ch-tipo-pessoa  <> TIPO_PESSOA_AMBOS
     then do:
         
-        assign ch-query = ch-query + substitute (" and contrat.in-tipo-pessoa = &1", ch-tipo-pessoa).
+        assign ch-query = ch-query + substitute (" and contrat.in-tipo-pessoa = '&1'", ch-tipo-pessoa).
     end.                                              
                                               .
 
@@ -159,6 +169,8 @@ procedure buscarContratos:
         if available buf-contrat 
         then release buf-contrat.
         
+        assign lg-filtro-mes-reaj   = no.
+        
         if propost.cd-contrat-origem    > 0
         then do:
             
@@ -166,9 +178,7 @@ procedure buscarContratos:
                where buf-contrat.cd-contratante = propost.cd-contrat-origem:                                                   
            end.
         end.
-        
-        if month (ter-ade.dt-inicio)     <> in-mes-reaj-filtro
-        then next.
+
                                                  
         create temp-contrato. 
         assign temp-contrato.in-modalidade          = propost.cd-modalidade
@@ -180,19 +190,17 @@ procedure buscarContratos:
                temp-contrato.ch-contratante-origem  = buf-contrat.nm-contratante 
                                                       when available buf-contrat
                in-ano-ult-reaj                      = propost.aa-ult-reajuste
-               in-mes-ult-reaj                      = propost.mm-ult-reajuste
+               in-mes-ult-reaj                      = propost.mm-ult-reajuste 
                dc-perc-ult-reaj                     = propost.pc-ult-reajuste
-               lg-usar-regra-valor-mes-ref          = usarRegraValorMesReferencia (propost.cd-modalidade,
-                                                                                   propost.nr-ter-adesao )
                .
-
+        
         find first reajuste-contrato no-lock
              where reajuste-contrato.in-modalidade  = propost.cd-modalidade
                and reajuste-contrato.in-termo       = propost.nr-ter-adesao
                and reajuste-contrato.ch-periodo-reajuste
                                                     = ch-periodo-reajuste
                and reajuste-contrato.ch-origem-historico
-                                                    = ORIGEM_HISTORICO_GERAR_EVENTO
+                                                    = ORIGEM_HISTORICO_GERAR_EVENTO 
                and reajuste-contrato.lg-cancelado   = no
                    no-error.
                    
@@ -209,7 +217,7 @@ procedure buscarContratos:
        use-index histabpr1
            where histabpreco.cd-modalidade  = propost.cd-modalidade
              and histabpreco.nr-proposta    = propost.nr-proposta
-             and histabpreco.aa-reajuste    = integer (substring (ch-periodo-reajuste, 4)):
+             and histabpreco.aa-reajuste    = in-ano-reaj-filtro:
                  
             log-manager:write-message (substitute ('LOG -> alterado dados do reajuste para &1, &2/&3',
                                                    histabpreco.pc-reajuste,
@@ -221,29 +229,45 @@ procedure buscarContratos:
                    in-ano-ult-reaj  = histabpreco.aa-reajuste
                    in-mes-ult-reaj  = histabpreco.mm-reajuste 
                    .
-        end.
+                   
+            if in-mes-ult-reaj <> in-mes-reaj-filtro
+            then do:
+                
+                assign lg-filtro-mes-reaj   = yes.
+                next.
+            end.                   
+        end.       
         
         assign temp-contrato.ch-ultimo-reajuste             = substitute ('&1/&2', string (in-mes-ult-reaj, '99'), string (in-ano-ult-reaj, '9999'))
                temp-contrato.dc-percentual-ultimo-reajuste  = dc-perc-ult-reaj
+               temp-contrato.ch-ultimo-faturamento          = substitute ('&1/&2', string (ter-ade.mm-ult-fat, '99'), string (ter-ade.aa-ult-fat, '9999'))
                .
+
                
         if  in-mes-ult-reaj = in-mes-reaj-filtro
         and in-ano-ult-reaj = in-ano-reaj-filtro
+        and not temp-contrato.lg-eventos-gerados
         then do:
 
         assign temp-contrato.lg-possui-reajuste-ano-ref = yes
                .
 
-            run buscarFaturamentoContrato (input  propost.cd-modalidade,
-                                           input  propost.nr-ter-adesao,
-                                           input  in-ano-ult-reaj,
-                                           input  in-mes-ult-reaj,
-                                           input  in-ano-fat,
-                                           input  in-mes-fat).    
+            run buscarFaturamentoContrato (input              propost.cd-modalidade,
+                                           input              propost.nr-ter-adesao,
+                                           input              in-ano-ult-reaj,
+                                           input              in-mes-ult-reaj,
+                                           input              in-ano-fat,
+                                           input              in-mes-fat,
+                                           input-output table temp-contrato by-reference,
+                                           input-output table temp-valor-beneficiario by-reference,
+                                           input-output table temp-valor-beneficiario-mes by-reference,
+                                           input-output table temp-valor-faturado-mes by-reference 
+                                           ).    
         end.
 
                
     end.
+    
 end procedure.
 
 
@@ -272,36 +296,69 @@ procedure buscarDetalhamentoHistorico:
                   
     jObj-detalhes:write (lo-detalhe, yes).                           
     
-
+ 
 end procedure.
 
-procedure buscarFaturamentoContrato private:
+procedure buscarFaturamentoContrato:
 /*------------------------------------------------------------------------------
  Purpose:
  Notes:
 ------------------------------------------------------------------------------*/
-    define input  parameter in-modalidade               as   integer    no-undo.
-    define input  parameter in-termo                    as   integer    no-undo.
-    define input  parameter in-ano-ref                  as   integer    no-undo.
-    define input  parameter in-mes-ref                  as   integer    no-undo.
-    define input  parameter in-ano-fat                  as   integer    no-undo.
-    define input  parameter in-mes-fat                  as   integer    no-undo.
+    define input        parameter in-modalidade               as   integer    no-undo.
+    define input        parameter in-termo                    as   integer    no-undo.
+    define input        parameter in-ano-ref                  as   integer    no-undo.
+    define input        parameter in-mes-ref                  as   integer    no-undo.
+    define input        parameter in-ano-fat                  as   integer    no-undo.
+    define input        parameter in-mes-fat                  as   integer    no-undo.
+    define input-output parameter table                 for  temp-contrato.
+    define input-output parameter table                 for  temp-valor-beneficiario.
+    define input-output parameter table                 for  temp-valor-beneficiario-mes.
+    define input-output parameter table                 for  temp-valor-faturado-mes.
+    
 
     define variable in-meses-dif                        as   integer    no-undo.
     define variable lg-precisa-simular                  as   logical    no-undo.
     
-    define buffer buf-temp-valor-beneficiario-mes for temp-valor-beneficiario-mes.      
+    define buffer buf-temp-valor-beneficiario-mes       for  temp-valor-beneficiario-mes.      
+    define buffer buf-temp-valor-faturado-mes           for  temp-valor-faturado-mes.
 
     define variable in-mes                              as   integer    no-undo.
     define variable in-ano                              as   integer    no-undo.
     define variable in-idade                            as   integer    no-undo.
     define variable in-mes-ant                          as   integer    no-undo.
     define variable in-ano-ant                          as   integer    no-undo.
+    define variable lg-antecipado                       as   logical    no-undo.
     
-    assign in-ano   = in-ano-ref
-           in-mes   = in-mes-ref
+    
+        
+    define variable in-numero-parcela as   integer  no-undo.
+    define variable in-conta          as   integer  no-undo.
+    define variable dc-valor-parcela     as decimal no-undo.
+    define variable dc-saldo             as decimal no-undo.
+    
+    assign in-ano           = in-ano-ref
+           in-mes           = in-mes-ref
+           lg-antecipado    = faturamentoAntecipado (in-modalidade, in-termo)
            .
            
+    run limpaTemporaria (input  in-modalidade,
+                         input  in-termo).           
+
+    
+    assign temp-contrato.in-quantidade-parcelas = 0.
+           
+    // se for da estrutura de faturamento antecipado, diminui uma parcela da gera‡Æo.           
+    if lg-antecipado
+    then do:
+        
+        assign in-mes = in-mes + 1.
+        
+        if in-mes > 12
+        then 
+            assign in-ano   = in-ano + 1
+                   in-mes   = 1.
+    end.           
+                
     repeat:
         
         process events.
@@ -320,8 +377,6 @@ procedure buscarFaturamentoContrato private:
              and (   notaserv.in-tipo-nota  = 0
                   or notaserv.in-tipo-nota  = 5):
                 
-                        
-                      
             for each vlbenef no-lock
                   of notaserv,                  
                first usuario no-lock
@@ -339,25 +394,25 @@ procedure buscarFaturamentoContrato private:
                           and evenfatu.cd-evento    = vlbenef.cd-evento:
                     end.
                 end.             
-    
-                if not available temp-valor-beneficiario-mes
-                or temp-valor-beneficiario-mes.in-modalidade   <> in-modalidade
-                or temp-valor-beneficiario-mes.in-termo        <> in-termo
-                or temp-valor-beneficiario-mes.in-usuario      <> vlbenef.cd-usuario
-                or temp-valor-beneficiario-mes.in-ano          <> in-ano
-                or temp-valor-beneficiario-mes.in-mes          <> in-mes
+                
+                if not available temp-valor-faturado-mes
+                or temp-valor-faturado-mes.in-modalidade   <> in-modalidade
+                or temp-valor-faturado-mes.in-termo        <> in-termo
+                or temp-valor-faturado-mes.in-usuario      <> vlbenef.cd-usuario
+                or temp-valor-faturado-mes.in-ano          <> in-ano
+                or temp-valor-faturado-mes.in-mes          <> in-mes
                 then do:
                     
-                    find first temp-valor-beneficiario-mes 
-                         where temp-valor-beneficiario-mes.in-modalidade    = in-modalidade     
-                           and temp-valor-beneficiario-mes.in-termo         = in-termo
-                           and temp-valor-beneficiario-mes.in-usuario       = vlbenef.cd-usuario
-                           and temp-valor-beneficiario-mes.in-ano           = in-ano
-                           and temp-valor-beneficiario-mes.in-mes           = in-mes
+                    find first temp-valor-faturado-mes 
+                         where temp-valor-faturado-mes.in-modalidade    = in-modalidade     
+                           and temp-valor-faturado-mes.in-termo         = in-termo
+                           and temp-valor-faturado-mes.in-usuario       = vlbenef.cd-usuario
+                           and temp-valor-faturado-mes.in-ano           = in-ano
+                           and temp-valor-faturado-mes.in-mes           = in-mes
                                no-error
                                .
                                
-                    if not available temp-valor-beneficiario-mes
+                    if not available temp-valor-faturado-mes
                     then do:
                         
                         log-manager:write-message (substitute ("&1/&2/&3 -> criando temporaria valor-mes",
@@ -368,14 +423,14 @@ procedure buscarFaturamentoContrato private:
                                                    
                                              
                                                 
-                        create temp-valor-beneficiario-mes.
-                        assign temp-valor-beneficiario-mes.in-modalidade    = in-modalidade
-                               temp-valor-beneficiario-mes.in-termo         = in-termo
-                               temp-valor-beneficiario-mes.in-usuario       = vlbenef.cd-usuario
-                               temp-valor-beneficiario-mes.in-ano           = in-ano
-                               temp-valor-beneficiario-mes.in-mes           = in-mes
-                               temp-valor-beneficiario-mes.in-faixa-etaria  = vlbenef.nr-faixa-etaria
-                               temp-valor-beneficiario-mes.in-idade         = interval (ultimoDiaMes (in-ano, in-mes), usuario.dt-nascimento, 'year')
+                        create temp-valor-faturado-mes.
+                        assign temp-valor-faturado-mes.in-modalidade    = in-modalidade
+                               temp-valor-faturado-mes.in-termo         = in-termo
+                               temp-valor-faturado-mes.in-usuario       = vlbenef.cd-usuario
+                               temp-valor-faturado-mes.in-ano           = in-ano
+                               temp-valor-faturado-mes.in-mes           = in-mes 
+                               temp-valor-faturado-mes.in-faixa-etaria  = vlbenef.nr-faixa-etaria
+                               temp-valor-faturado-mes.in-idade         = interval (ultimoDiaMes (in-ano, in-mes), usuario.dt-nascimento, 'year')
                                .      
                                
                         assign in-mes-ant = in-mes - 1
@@ -386,18 +441,18 @@ procedure buscarFaturamentoContrato private:
                             assign in-ano-ant   = in-ano-ant - 1
                                    in-mes-ant   = 12.      
                                    
-                        find first buf-temp-valor-beneficiario-mes 
-                             where buf-temp-valor-beneficiario-mes.in-modalidade    = temp-valor-beneficiario-mes.in-modalidade
-                               and buf-temp-valor-beneficiario-mes.in-termo         = temp-valor-beneficiario-mes.in-termo
-                               and buf-temp-valor-beneficiario-mes.in-usuario       = temp-valor-beneficiario-mes.in-usuario
-                               and buf-temp-valor-beneficiario-mes.in-ano           = temp-valor-beneficiario-mes.in-ano
-                               and buf-temp-valor-beneficiario-mes.in-mes           = temp-valor-beneficiario-mes.in-mes
+                        find first buf-temp-valor-faturado-mes 
+                             where buf-temp-valor-faturado-mes.in-modalidade    = temp-valor-faturado-mes.in-modalidade
+                               and buf-temp-valor-faturado-mes.in-termo         = temp-valor-faturado-mes.in-termo
+                               and buf-temp-valor-faturado-mes.in-usuario       = temp-valor-faturado-mes.in-usuario
+                               and buf-temp-valor-faturado-mes.in-ano           = temp-valor-faturado-mes.in-ano
+                               and buf-temp-valor-faturado-mes.in-mes           = temp-valor-faturado-mes.in-mes
                                    no-error. 
                                    
-                        if available buf-temp-valor-beneficiario-mes
-                        and buf-temp-valor-beneficiario-mes.in-faixa-etaria    <> temp-valor-beneficiario-mes.in-faixa-etaria
+                        if available buf-temp-valor-faturado-mes
+                        and buf-temp-valor-faturado-mes.in-faixa-etaria    <> temp-valor-faturado-mes.in-faixa-etaria
                         then
-                            assign temp-valor-beneficiario-mes.lg-trocou-faixa  = yes.
+                            assign temp-valor-faturado-mes.lg-trocou-faixa  = yes. 
                     end.
                 end.
                 
@@ -408,123 +463,221 @@ procedure buscarFaturamentoContrato private:
                                                            vlbenef.cd-modalidade,
                                                            vlbenef.nr-ter-adesao,
                                                            vlbenef.cd-usuario,
-                                                           vlbenef.cd-evento,
+                                                           vlbenef.cd-evento, 
                                                            vlbenef.vl-usuario), 
-                                               "DEBUG") no-error.
+                                               "DEBUG") no-error. 
                                                
-                    assign temp-valor-beneficiario-mes.dc-valor-referencia  = temp-valor-beneficiario-mes.dc-valor-referencia + 
-                                                                              if (evenfatu.lg-cred-deb) 
-                                                                              then vlbenef.vl-usuario
-                                                                              else vlbenef.vl-usuario * -1.
+                    assign temp-valor-faturado-mes.dc-valor-referencia  = temp-valor-faturado-mes.dc-valor-referencia + 
+                                                                          if (evenfatu.lg-cred-deb) 
+                                                                          then vlbenef.vl-usuario
+                                                                          else vlbenef.vl-usuario * -1.
                 end.
    
             end.
         end. 
     
-        assign in-mes = in-mes + 1.
+        assign in-mes   = in-mes + 1
+               . 
         
         if in-mes > 12
         then 
             assign in-ano   = in-ano + 1
                    in-mes   = 1.
-        
+          
         if  in-ano  = in-ano-fat
         and in-mes  = in-mes-fat
         then do:
-            log-manager:write-message (substitute ("&1/&2 -> terminada leitura do faturamento"), "DEBUG") no-error.
+            log-manager:write-message (substitute ("&1/&2 -> terminada leitura do faturamento",
+                                                   temp-contrato.in-modalidade,
+                                                   temp-contrato.in-termo), "DEBUG") no-error.
             leave.
         end. 
         
         if in-ano > in-ano-fat
         then leave.
-    end.               
-           
-    for each temp-valor-beneficiario-mes
-       where temp-valor-beneficiario-mes.in-modalidade  = in-modalidade
-         and temp-valor-beneficiario-mes.in-termo       = in-termo:
-        
-        log-manager:write-message (substitute ("&1/&2/&3 -> valor do periodo &4/&5: &6, trocou faixa: &7",
-                                               in-modalidade,
-                                               in-termo,
-                                               temp-valor-beneficiario-mes.in-usuario,
-                                               temp-valor-beneficiario-mes.in-mes,
-                                               temp-valor-beneficiario-mes.in-ano,
-                                               temp-valor-beneficiario-mes.dc-valor-referencia,
-                                               temp-valor-beneficiario-mes.lg-trocou-faixa), "DEBUG") no-error.     
-             
-        assign temp-valor-beneficiario-mes.dc-valor-parcela = round ((temp-contrato.dc-percentual-ultimo-reajuste * temp-valor-beneficiario-mes.dc-valor-referencia) / 100, 2)
-               .
-               
-        log-manager:write-message (substitute ("&1/&2/&3 -> periodo &5/&6, valor da parcela: &4, &7% reaj",
-                                               in-modalidade,
-                                               in-termo, 
-                                               temp-valor-beneficiario-mes.in-usuario,
-                                               temp-valor-beneficiario-mes.dc-valor-parcela,
-                                               temp-valor-beneficiario-mes.in-mes,
-                                               temp-valor-beneficiario-mes.in-ano,
-                                               temp-contrato.dc-percentual-ultimo-reajuste), 
-                                   "DEBUG") no-error.
     end.
     
-    log-manager:write-message (substitute ("&1/&2 -> finalizado valores individuais, criando tabela de totalizadores por beneficiario",
-                                            in-modalidade,
-                                            in-termo), "DEBUG") no-error.
-                                            
-    for each temp-valor-beneficiario-mes
-       where temp-valor-beneficiario-mes.in-modalidade  = in-modalidade
-         and temp-valor-beneficiario-mes.in-termo       = in-termo
-    break by temp-valor-beneficiario-mes.in-usuario
-          by temp-valor-beneficiario-mes.in-ano
-          by temp-valor-beneficiario-mes.in-mes:       
+                               
+    for each temp-valor-faturado-mes
+       where temp-valor-faturado-mes.in-modalidade  = in-modalidade
+         and temp-valor-faturado-mes.in-termo       = in-termo
+    break by temp-valor-faturado-mes.in-ano
+          by temp-valor-faturado-mes.in-mes: 
               
-              
-        if not available temp-valor-beneficiario
-        or temp-valor-beneficiario.in-modalidade   <> temp-valor-beneficiario-mes.in-modalidade
-        or temp-valor-beneficiario.in-termo        <> temp-valor-beneficiario-mes.in-termo
-        or temp-valor-beneficiario.in-usuario      <> temp-valor-beneficiario-mes.in-usuario
+        if first-of (temp-valor-faturado-mes.in-ano)
+        or first-of (temp-valor-faturado-mes.in-mes)
         then do:
             
-            find first temp-valor-beneficiario
-                 where temp-valor-beneficiario.in-modalidade    = temp-valor-beneficiario-mes.in-modalidade 
-                   and temp-valor-beneficiario.in-termo         = temp-valor-beneficiario-mes.in-termo     
-                   and temp-valor-beneficiario.in-usuario       = temp-valor-beneficiario-mes.in-usuario
-                       no-error.   
+            assign temp-contrato.in-quantidade-parcelas = temp-contrato.in-quantidade-parcelas + 1.
+        end.               
+    end.
+    
+    log-manager:write-message (substitute ("&1/&2 -> parcelas calculadas pelo sistema: &3",
+                                           in-modalidade,
+                                           in-termo,
+                                           temp-contrato.in-quantidade-parcelas), 
+                               "DEBUG") no-error.
+                               
+                               
+    log-manager:write-message (substitute ("&1/&2 -> criando acumulado por beneficiario",
+                                           in-modalidade,
+                                           in-termo), 
+                               "DEBUG") no-error.
+                               
+    for each temp-valor-faturado-mes
+       where temp-valor-faturado-mes.in-modalidade  = in-modalidade
+         and temp-valor-faturado-mes.in-termo       = in-termo
+    break by temp-valor-faturado-mes.in-usuario:
+        
+                                               
+        if first-of (temp-valor-faturado-mes.in-usuario)
+        then do:
 
-            if not available temp-valor-beneficiario
-            then do:
-                
-                find first usuario no-lock
-                     where usuario.cd-modalidade    = temp-valor-beneficiario-mes.in-modalidade
-                       and usuario.nr-ter-adesao    = temp-valor-beneficiario-mes.in-termo
-                       and usuario.cd-usuario       = temp-valor-beneficiario-mes.in-usuario
-                           .
-                
-                find first gra-par no-lock
-                     where gra-par.cd-grau-parentesco   = usuario.cd-grau-parentesco
-                           .
-                           
-                create temp-valor-beneficiario.
-                assign temp-valor-beneficiario.rc-contrato          = recid (temp-contrato)
-                       temp-valor-beneficiario.in-modalidade        = temp-valor-beneficiario-mes.in-modalidade
-                       temp-valor-beneficiario.in-termo             = temp-valor-beneficiario-mes.in-termo
-                       temp-valor-beneficiario.in-usuario           = temp-valor-beneficiario-mes.in-usuario
-                       temp-valor-beneficiario.ch-grau-parentesto   = gra-par.ds-grau-parentesco
-                       temp-valor-beneficiario.ch-nome-usuario      = usuario.nm-usuario
-                       temp-valor-beneficiario.dt-inclusao-plano    = usuario.dt-inclusao-plano
-                       temp-valor-beneficiario.dt-nascimento        = usuario.dt-nascimento
+            log-manager:write-message (substitute ("&1/&2/&3 -> criando acumulado",
+                                                   in-modalidade,
+                                                   in-termo,
+                                                   temp-valor-faturado-mes.in-usuario), 
+                                       "DEBUG") no-error.
+
+            find first usuario no-lock
+                 where usuario.cd-modalidade    = temp-valor-faturado-mes.in-modalidade
+                   and usuario.nr-ter-adesao    = temp-valor-faturado-mes.in-termo
+                   and usuario.cd-usuario       = temp-valor-faturado-mes.in-usuario
                        .
-            end.
-        end.
-
-        assign temp-valor-beneficiario-mes.rc-valor-benef   = recid (temp-valor-beneficiario)
+            
+            find first gra-par no-lock
+                 where gra-par.cd-grau-parentesco   = usuario.cd-grau-parentesco
+                       .
+                       
+            create temp-valor-beneficiario.
+            assign temp-valor-beneficiario.rc-contrato          = recid (temp-contrato)
+                   temp-valor-beneficiario.in-modalidade        = temp-valor-faturado-mes.in-modalidade
+                   temp-valor-beneficiario.in-termo             = temp-valor-faturado-mes.in-termo
+                   temp-valor-beneficiario.in-usuario           = temp-valor-faturado-mes.in-usuario
+                   temp-valor-beneficiario.ch-grau-parentesto   = gra-par.ds-grau-parentesco
+                   temp-valor-beneficiario.ch-nome-usuario      = usuario.nm-usuario
+                   temp-valor-beneficiario.dt-inclusao-plano    = usuario.dt-inclusao-plano
+                   temp-valor-beneficiario.dt-nascimento        = usuario.dt-nascimento
+                   temp-contrato.in-quantidade-vidas            = temp-contrato.in-quantidade-vidas + 1
+                   .          
+                   
+        end.            
+        
+        assign temp-valor-faturado-mes.dc-valor-reajuste    = round ((temp-contrato.dc-percentual-ultimo-reajuste * 
+                                                                      temp-valor-faturado-mes.dc-valor-referencia) / 
+                                                                      100, 2)
+                                                                      
                temp-valor-beneficiario.dc-valor-referencia  = temp-valor-beneficiario.dc-valor-referencia + 
-                                                              temp-valor-beneficiario-mes.dc-valor-referencia
-               temp-valor-beneficiario.dc-valor-cobrar      = temp-valor-beneficiario.dc-valor-cobrar + 
-                                                              temp-valor-beneficiario-mes.dc-valor-parcela
-               temp-valor-beneficiario.in-quantidade-parcelas   
-                                                            = temp-valor-beneficiario.in-quantidade-parcelas + 1.
+                                                              temp-valor-faturado-mes.dc-valor-referencia
+                                                                                                                                    
+               temp-valor-beneficiario.dc-valor-cobrar      = temp-valor-beneficiario.dc-valor-cobrar +
+                                                              temp-valor-faturado-mes.dc-valor-reajuste
+               .  
+                                                                                                                  
+        log-manager:write-message (substitute ("&1/&2/&3 -> per: &4/&5, valor ref: &6, valor reaj: &7",
+                                               temp-valor-faturado-mes.in-modalidade,
+                                               temp-valor-faturado-mes.in-termo,
+                                               temp-valor-faturado-mes.in-usuario,
+                                               temp-valor-faturado-mes.in-mes,
+                                               temp-valor-faturado-mes.in-ano,
+                                               temp-valor-faturado-mes.dc-valor-referencia,
+                                               temp-valor-faturado-mes.dc-valor-reajuste), 
+                                   "DEBUG") no-error.
+                                   
+        if last-of (temp-valor-faturado-mes.in-usuario)
+        then do:
+            
+            log-manager:write-message (substitute ("&1/&2/&3 -> total a cobrar: &4",
+                                                   in-modalidade,
+                                                   in-termo,
+                                                   temp-valor-beneficiario.in-usuario,
+                                                   temp-valor-beneficiario.dc-valor-cobrar), 
+                                       "DEBUG") no-error.
+        end.                                   
+    end.
+    
+    assign in-numero-parcela    = numeroParcelas (in-modalidade, in-termo).
+            
+    log-manager:write-message (substitute ("&1/&2 -> iniciando calculo do valor das parcelas",
+                                           in-modalidade,
+                                           in-termo), "DEBUG") no-error.         
+    
+    for each temp-valor-beneficiario
+       where temp-valor-beneficiario.in-modalidade  = in-modalidade
+         and temp-valor-beneficiario.in-termo       = in-termo:   
+        
+        log-manager:write-message (substitute ("&1/&2/&3 -> calculando valores do benef",
+                                               in-modalidade,
+                                               in-termo,
+                                               temp-valor-beneficiario.in-usuario), 
+                                   "DEBUG") no-error.            
+            
+        assign in-conta         = 1
+               in-mes           = in-mes-fat
+               in-ano           = in-ano-fat
+               dc-valor-parcela = round (temp-valor-beneficiario.dc-valor-cobrar / in-numero-parcela, 2)
+               dc-saldo         = temp-valor-beneficiario.dc-valor-cobrar - (dc-valor-parcela * in-numero-parcela).
+               .        
+ 
+        bloco_repeat:
+        repeat:
+            
+            log-manager:write-message (substitute ("&1/&2/&3 -> criando parcela &4",
+                                                   in-modalidade,
+                                                   in-termo,
+                                                   temp-valor-beneficiario.in-usuario,
+                                                   in-conta), 
+                                       "DEBUG") no-error.
+            
+            create temp-valor-beneficiario-mes.
+            assign temp-valor-beneficiario-mes.in-modalidade        = temp-valor-beneficiario.in-modalidade
+                   temp-valor-beneficiario-mes.in-termo             = temp-valor-beneficiario.in-termo
+                   temp-valor-beneficiario-mes.in-usuario           = temp-valor-beneficiario.in-usuario
+                   temp-valor-beneficiario-mes.in-ano               = in-ano
+                   temp-valor-beneficiario-mes.in-mes               = in-mes
+                   temp-valor-beneficiario-mes.dc-valor-parcela     = dc-valor-parcela
+                   temp-valor-beneficiario-mes.in-numero-parcela    = in-conta
+                   .
+                   
+            if  in-conta    = in-numero-parcela
+            and dc-saldo    > 0
+            then               
+                assign temp-valor-beneficiario-mes.dc-valor-parcela = temp-valor-beneficiario-mes.dc-valor-parcela + dc-saldo.         
+                   
 
-    end.                                            
+            log-manager:write-message (substitute ("&1/&2/&3 -> parcela &4 no valor de &5 criada para &6/&7",
+                                                   in-modalidade,
+                                                   in-termo,
+                                                   temp-valor-beneficiario.in-usuario,
+                                                   in-conta,
+                                                   temp-valor-beneficiario-mes.dc-valor-parcela,
+                                                   temp-valor-beneficiario-mes.in-mes,
+                                                   temp-valor-beneficiario-mes.in-ano), 
+                                       "DEBUG") no-error.
+
+            
+
+            assign in-conta = in-conta + 1
+                   in-mes   = in-mes + 1
+                   .
+                   
+            if in-mes > 12
+            then 
+                assign in-mes   = 1
+                       in-ano   = in-ano + 1
+                       .
+            
+            if in-conta > in-numero-parcela
+            then leave bloco_repeat.
+        end.                                   
+    end.  
+    
+        define variable lo-saida as longchar no-undo.
+    
+    
+    run gerarJson (output lo-saida).
+    
+    copy-lob lo-saida to file     "c:/temp/casali/p5/dados.json".
     
 end procedure.
 
@@ -725,8 +878,9 @@ procedure criarEventosContratos:
         assign in-evento    = integer (lo-parametro).        
         
         for each temp-contrato
-           where temp-contrato.lg-marcado
-             and temp-contrato.lg-possui-reajuste-ano-ref:
+           where temp-contrato.lg-marcado                   = yes
+             and temp-contrato.lg-possui-reajuste-ano-ref   = yes
+             and temp-contrato.lg-eventos-gerados           = no:
                  
             log-manager:write-message (substitute ("&1/&2 -> lendo contrato",
                                                    temp-contrato.in-modalidade,
@@ -761,10 +915,6 @@ procedure criarEventosContratos:
                          
                     assign in-quantidade-parcelas   = in-quantidade-parcelas + 1
                            dc-valor-cobrado         = dc-valor-cobrado + temp-valor-beneficiario-mes.dc-valor-parcela
-                           temp-valor-beneficiario-mes.ch-periodo-evento-criado
-                                                    = substitute ('&1/&2', 
-                                                                  string (in-mes, '99'),
-                                                                  string (in-ano, '9999'))
                            .                         
                          
                     run criarEventoProgramado (input  temp-valor-beneficiario-mes.in-modalidade,
@@ -804,7 +954,9 @@ procedure criarEventosContratos:
                    by temp-valor-beneficiario-mes.in-ano
                    by temp-valor-beneficiario-mes.in-mes:
                        
-                assign ch-per-ini   = temp-valor-beneficiario-mes.ch-periodo-evento-criado.
+                assign ch-per-ini   = substitute ("&1/&2",
+                                                  string (temp-valor-beneficiario-mes.in-mes, '99'),
+                                                  string (temp-valor-beneficiario-mes.in-ano, '9999')).
             end.                       
 
             for last temp-valor-beneficiario-mes
@@ -813,9 +965,11 @@ procedure criarEventosContratos:
                   by temp-valor-beneficiario-mes.in-ano
                   by temp-valor-beneficiario-mes.in-mes:
                       
-                assign ch-per-fim   = temp-valor-beneficiario-mes.ch-periodo-evento-criado.
+                assign ch-per-fim   = substitute ("&1/&2",
+                                                  string (temp-valor-beneficiario-mes.in-mes, '99'),
+                                                  string (temp-valor-beneficiario-mes.in-ano, '9999')).
             end.                       
-
+ 
             create reajuste-contrato.
             assign reajuste-contrato.in-id                  = next-value (seq-reajuste-contrato)
                    reajuste-contrato.in-modalidade          = temp-contrato.in-modalidade
@@ -967,8 +1121,10 @@ procedure gerarJson private:
     define variable jObj-contrato           as   JsonObject no-undo.
     define variable jObj-valor-benef        as   JsonObject no-undo.
     define variable jObj-valor-benef-mes    as   JsonObject no-undo.
+    define variable jObj-valor-fat-mes      as   JsonObject no-undo.
     define variable jArr-valor-benef        as   JsonArray  no-undo.
     define variable jArr-valor-benef-mes    as   JsonArray  no-undo.    
+    define variable jArr-valor-fat-mes      as   JsonArray  no-undo.
 
     assign jObj-contrato    = new JsonObject()
            jArr-valor-benef = new JsonArray().
@@ -981,9 +1137,24 @@ procedure gerarJson private:
          and temp-valor-beneficiario.in-termo       = temp-contrato.in-termo:
         
         assign jObj-valor-benef     = new JsonObject()
-               jArr-valor-benef-mes = new JsonArray().
+               jArr-valor-benef-mes = new JsonArray()
+               jArr-valor-fat-mes   = new JsonArray()
+               .
         
         buffer temp-valor-beneficiario:serialize-row ('json', 'JsonObject', jObj-valor-benef, no, ?, yes, yes ).
+        
+        for each temp-valor-faturado-mes
+           where temp-valor-faturado-mes.in-modalidade  = temp-valor-beneficiario.in-modalidade
+             and temp-valor-faturado-mes.in-termo       = temp-valor-beneficiario.in-termo
+             and temp-valor-faturado-mes.in-usuario     = temp-valor-beneficiario.in-usuario:
+                 
+            assign jObj-valor-fat-mes   = new JsonObject().                 
+            
+            buffer temp-valor-faturado-mes:serialize-row ('json', 'JsonObject', jObj-valor-fat-mes, no, ?, yes, yes).
+            jArr-valor-fat-mes:Add(jObj-valor-fat-mes).                    
+                 
+        end.                 
+        
         
         for each temp-valor-beneficiario-mes
            where temp-valor-beneficiario-mes.in-modalidade  = temp-valor-beneficiario.in-modalidade
@@ -995,22 +1166,60 @@ procedure gerarJson private:
                                                    temp-valor-beneficiario-mes.in-termo,
                                                    temp-valor-beneficiario-mes.in-usuario), 
                                        "DEBUG") no-error.
-            
             assign jObj-valor-benef-mes = new JsonObject().                 
             
             buffer temp-valor-beneficiario-mes:serialize-row ('json', 'JsonObject', jObj-valor-benef-mes, no, ?, yes, yes).
             jArr-valor-benef-mes:Add(jObj-valor-benef-mes).                                    
         end.
         
-        jObj-valor-benef:Add("detalhes", jArr-valor-benef-mes).        
+        jObj-valor-benef:Add("parcelas", jArr-valor-benef-mes).        
+        jObj-valor-benef:Add("faturado", jArr-valor-fat-mes).
         jArr-valor-benef:Add(jObj-valor-benef).
     end.  
     
     jObj-contrato:Add("valores", jArr-valor-benef).          
     
-    jObj-contrato:write (lo-saida, no).
+    jObj-contrato:write (lo-saida, yes).
     
              
+
+end procedure.
+
+procedure limpaTemporaria private:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input  parameter in-modalidade       as   integer    no-undo.
+    define input  parameter in-termo            as   integer    no-undo.
+
+    // limpando temp tables para recalcular, caso reprocessado
+    if can-find (first temp-valor-beneficiario
+                 where temp-valor-beneficiario.in-modalidade    = in-modalidade
+                   and temp-valor-beneficiario.in-termo         = in-termo)
+    then do:
+        
+        for each temp-valor-beneficiario
+           where temp-valor-beneficiario.in-modalidade    = in-modalidade
+             and temp-valor-beneficiario.in-termo         = in-termo:
+                 
+            delete temp-valor-beneficiario.                                
+        end.          
+        
+        for each temp-valor-beneficiario-mes
+           where temp-valor-beneficiario-mes.in-modalidade  = in-modalidade
+             and temp-valor-beneficiario-mes.in-termo       = in-termo:
+        
+            delete temp-valor-beneficiario-mes.         
+        end. 
+        
+        for each temp-valor-faturado-mes
+           where temp-valor-faturado-mes.in-modalidade  = in-modalidade
+             and temp-valor-faturado-mes.in-termo       = in-termo:
+            
+            delete temp-valor-faturado-mes.
+        end.       
+    end.
 
 end procedure.
 
@@ -1047,4 +1256,38 @@ procedure simularFaturamento private:
 
 
 end procedure.
+
+
+/* ************************  Function Implementations ***************** */
+
+function numeroParcelas returns integer private
+    (in-modalidade  as   integer,
+     in-termo       as   integer  ):
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define variable in-numero-parcela               as   integer    no-undo.    
+
+    if  temp-contrato.in-quantidade-parcelas-usuario    > 0
+    and temp-contrato.in-quantidade-parcelas-usuario   <> temp-contrato.in-quantidade-parcelas
+    then do:
+        
+        assign in-numero-parcela    = temp-contrato.in-quantidade-parcelas-usuario.   
+    end. 
+    else do:
+        
+        assign in-numero-parcela    = temp-contrato.in-quantidade-parcelas.
+    end.
+    
+    log-manager:write-message (substitute ("&1/&2 -> quantidade parcelas a considerar: &3, calculado pelo sistema: &4, digitado pelo usuario: &5",
+                                           in-modalidade,
+                                           in-termo,
+                                           in-numero-parcela,
+                                           temp-contrato.in-quantidade-parcelas,
+                                           temp-contrato.in-quantidade-parcelas-usuario), 
+                               "DEBUG") no-error.
+    return in-numero-parcela.
+        
+end function.
 

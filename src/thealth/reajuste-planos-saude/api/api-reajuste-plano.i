@@ -39,23 +39,60 @@ define variable EV_API_REAJUSTE_PLANO_ELIMINAR_EVENTO
 
 define temp-table temp-contrato             no-undo
                                             serialize-name  'contrato'
-    field lg-marcado                        as   logical    label '   '                 view-as toggle-box
-    field in-modalidade                     as   integer    label 'Modalidade'          format '>9'
-    field in-termo                          as   integer    label 'Termo'               format '>>>>>9'                                           
-    field in-proposta                       as   integer    label 'Proposta'            format '>>>>>9'
-    field ch-ultimo-reajuste                as   character  label 'élt. reaj.'          format 'x(8)'
-    field dc-percentual-ultimo-reajuste     as   decimal    label '% £lt. reaj.'        format '->>9.99'
-    field ch-ultimo-faturamento             as   character  label 'Per¡odo £lt. fat.'   format 'x(8)'
-    field dc-contratante                    as   decimal    label 'C¢d. contratante'    format '>>>>>>>>9'
+    field lg-marcado                        as   logical    label '   '                 
+                                                            view-as toggle-box
+                                                            serialize-hidden
+    field in-modalidade                     as   integer    label 'Modalidade'          
+                                                            format '>9'
+                                                            serialize-name 'modalidade'
+    field in-termo                          as   integer    label 'Termo'               
+                                                            format '>>>>>9'
+                                                            serialize-name 'termo'                                           
+    field in-proposta                       as   integer    label 'Proposta'            
+                                                            format '>>>>>9'
+                                                            serialize-name 'proposta'
+    field ch-ultimo-reajuste                as   character  label 'élt. reaj.'          
+                                                            format 'x(15)'
+                                                            serialize-name 'ultReajuste'
+    field dc-percentual-ultimo-reajuste     as   decimal    label '% £lt. reaj.'        
+                                                            format '->>9.99'
+                                                            serialize-name 'percUltReaj'
+    field ch-ultimo-faturamento             as   character  label 'Per¡odo £lt. fat.'   
+                                                            format 'x(8)'
+                                                            serialize-name 'periodoUltFat'
+    field dc-contratante                    as   decimal    label 'C¢d. contratante'    
+                                                            format '>>>>>>>>9'
+                                                            serialize-name 'contratante'
     field dc-contratante-origem             as   decimal    label 'C¢d. contrat. origem'
-                                                                                        format '>>>>>>>>9'
-    field in-quantidade-vidas               as   integer    label 'Qt. vidas'           format '>>>9'
-    field ch-contratante                    as   character  label 'Contratante'         format 'x(40)'
-    field ch-contratante-origem             as   character  label 'Contratante orig.'   format 'x(40)'
-    field lg-possui-reajuste-ano-ref        as   logical    label 'Possui reaj?'        view-as toggle-box
-    field lg-eventos-gerados                as   logical    label 'Eventos gerados'     format 'Sim/NÆo'
-    field ch-usuario-evento                 as   character  label 'Gerado por'          format 'x(20)'
-    field dt-geracao-evento                 as   datetime   label 'Em'                  format '99/99/9999 HH:MM:SS'
+                                                            format '>>>>>>>>9'
+                                                            serialize-name 'contratanteOrigem'
+    field in-quantidade-vidas               as   integer    label 'Qt. vidas'
+                                                            serialize-name 'qtVidas'           
+                                                            format '>>>9'
+    field ch-contratante                    as   character  label 'Contratante'
+                                                            serialize-name 'nomeContratante'         
+                                                            format 'x(40)'
+    field ch-contratante-origem             as   character  label 'Contratante orig.'
+                                                            serialize-name 'nomeContratanteOrigem'   
+                                                            format 'x(40)'
+    field lg-possui-reajuste-ano-ref        as   logical    label 'Possui reaj?'
+                                                            serialize-name 'possuiReajuste'        
+                                                            view-as toggle-box
+    field lg-eventos-gerados                as   logical    label 'Eventos gerados'
+                                                            serialize-name 'eventosGerados'     
+                                                            format 'Sim/NÆo'
+    field ch-usuario-evento                 as   character  label 'Gerado por'
+                                                            serialize-name 'geradoPor'          
+                                                            format 'x(20)'
+    field dt-geracao-evento                 as   datetime   label 'Em'
+                                                            serialize-name 'geradoEm'                  
+                                                            format '99/99/9999 HH:MM:SS'
+    field in-quantidade-parcelas            as   integer    label 'Qt. parc.'           
+                                                            serialize-name 'quantidadeParcelas'
+                                                            format '99'
+    field in-quantidade-parcelas-usuario    as   integer    label 'Qt. parc. usuario'   
+                                                            serialize-name 'quantidadeParcelasInformado' 
+                                                            format '99'
     index idx1
           as primary
           in-modalidade
@@ -70,20 +107,45 @@ define temp-table temp-contrato             no-undo
     
 define temp-table temp-valor-beneficiario   no-undo
                                             serialize-name  'valorBenef'
-    field rc-contrato                       as   recid      serialize-hidden
+    field rc-contrato                       as   recid      serialize-hidden                                                        
     field in-modalidade                     as   integer    label 'Modalidade'
+                                                            format '>9'      
+                                                            serialize-name 'modalidade'
     field in-termo                          as   integer    label 'Termo'
+                                                            format '>>>>>9'           
+                                                            serialize-name 'termo'
     field in-usuario                        as   integer    label 'Usu rio'
-    field ch-nome-usuario                   as   character  label 'Nome'            format 'x(40)'
-    field dt-nascimento                     as   date       label 'Dt. Nascimento'  format '99/99/9999'
-    field in-grau-parentesco                as   integer    label 'Grau par.'
-    field ch-grau-parentesto                as   character  label 'Grau par.'       format 'x(15)'
-    field dt-inclusao-plano                 as   date       label 'Dt. InclusÆo'    format '99/99/9999'
-    field lg-aniversario-periodo            as   logical    label 'Fez aniver.?'    format 'Sim/NÆo'
-    field lg-possui-troca-faixa             as   logical    label 'Trocou faixa?'   format 'Sim/NÆo' 
+                                                            format '>>>>>>>9'         
+                                                            serialize-name 'codUsuario'
+    field ch-nome-usuario                   as   character  label 'Nome'            
+                                                            format 'x(40)'
+                                                            serialize-name 'nome'
+    field dt-nascimento                     as   date       label 'Dt. Nascimento'  
+                                                            format '99/99/9999'
+                                                            serialize-name 'nascimento'
+    field in-grau-parentesco                as   integer    label 'Grau par.'       
+                                                            serialize-name 'codGrauParentesco'
+    field ch-grau-parentesto                as   character  label 'Grau par.'       
+                                                            format 'x(15)'
+                                                            serialize-name 'descGrauParentesco'
+    field dt-inclusao-plano                 as   date       label 'Dt. InclusÆo'    
+                                                            format '99/99/9999'
+                                                            serialize-name 'dtInclusaoPlano'
+    field lg-aniversario-periodo            as   logical    label 'Fez aniver.?'    
+                                                            format 'Sim/NÆo'
+                                                            serialize-name 'fezAniversario'
+    field lg-possui-troca-faixa             as   logical    label 'Trocou faixa?'   
+                                                            format 'Sim/NÆo'
+                                                            serialize-name 'trocouFaixa' 
     field dc-valor-referencia               as   decimal    label 'Valor faturado'
+                                                            format 'R$ >>>,>>9.99'  
+                                                            serialize-name 'valorNotaReferencia'
     field in-quantidade-parcelas            as   integer    label 'Quantidade parcela'
-    field dc-valor-cobrar                   as   decimal    label 'Valor cobrar'    
+                                                            format '99'
+                                                            serialize-name 'qtParcelas'
+    field dc-valor-cobrar                   as   decimal    label 'Valor cobrar' 
+                                                            format 'R$ >>>,>>9.99'        
+                                                            serialize-name 'valorCobrarReajuste'
     index idx1
           as primary
           as unique
@@ -97,17 +159,26 @@ define temp-table temp-valor-beneficiario-mes   no-undo
                                             serialize-name  'valorBenefMes'
     field rc-valor-benef                    as   recid      serialize-hidden
     field in-modalidade                     as   integer    label 'Modalidade'
+                                                            format '>9'      
+                                                            serialize-name 'modalidade'
     field in-termo                          as   integer    label 'Termo'
+                                                            format '>>>>>9'           
+                                                            serialize-name 'termo'
     field in-usuario                        as   integer    label 'Usu rio'
+                                                            format '>>>>>>>9'         
+                                                            serialize-name 'codUsuario'
     field in-ano                            as   integer    label 'Ano'
+                                                            format '9999'
+                                                            serialize-name 'ano'
     field in-mes                            as   integer    label 'Mˆs'
-    field lg-trocou-faixa                   as   logical
-    field lg-simular                        as   logical    
-    field dc-valor-referencia               as   decimal
-    field dc-valor-parcela                  as   decimal
-    field in-faixa-etaria                   as   integer
-    field in-idade                          as   integer
-    field ch-periodo-evento-criado          as   character  label 'Per¡odo cobran‡a'
+                                                            format '99'
+                                                            serialize-name 'mes'
+    field dc-valor-parcela                  as   decimal    label 'Valor parcela'
+                                                            format 'R$ >>>,>>9.99'
+                                                            serialize-name 'valorParcela'
+    field in-numero-parcela                 as   integer    label 'N£mero parc.'
+                                                            format '99'
+                                                            serialize-name 'numeroParcela'                                                               
     index idx1
           as primary
           as unique
@@ -117,6 +188,30 @@ define temp-table temp-valor-beneficiario-mes   no-undo
           in-ano
           in-mes
     .
+    
+    
+define temp-table temp-valor-faturado-mes   no-undo 
+                                            serialize-name 'valorBenefCobranca'
+                                            like temp-valor-beneficiario-mes
+    field dc-valor-referencia               as   decimal    label 'Valor ref.'
+                                                            format 'R$ >>>,>>9.99'
+                                                            serialize-name 'valorBenefCobranca'
+    field dc-valor-reajuste                 as   decimal    label 'Valor reaj.'
+                                                            format 'R$ >>>,>>9.99'
+                                                            serialize-name 'valorReajuste'
+    field in-faixa-etaria                   as   integer    label 'Faixa etaria'
+                                                            format 'R$ >>>,>>9.99'
+                                                            serialize-name 'faixaEtaria'        
+    field in-idade                          as   integer    label 'Idade'
+                                                            format '999'
+                                                            serialize-name 'idade'                
+    field lg-trocou-faixa                   as   logical    label 'Trocou fx.'
+                                                            format 'Sim/NÆo'
+                                                            serialize-name 'trocouFaixa'                                                        
+     
+    
+    .    
+    
     
     
 define temp-table temp-exportar             no-undo
@@ -134,6 +229,7 @@ define temp-table temp-exportar             no-undo
     field in-grau-parentesco                as   integer    label 'Grau par.'
     field ch-grau-parentesto                as   character  label 'Grau par.'       format 'x(15)'
     field dt-inclusao-plano                 as   date       label 'Dt. InclusÆo'    format '99/99/9999'
+    field dc-valor-total-cobrar             as   decimal    label 'Total cobrar'    format '>>>,>>9.99'
     index idx1
           as primary
           as unique
@@ -159,7 +255,6 @@ define temp-table temp-historico            no-undo
           in-id-historico
     index idx2
           as primary
-          as unique
           in-modalidade
           in-termo
           ch-periodo-reajuste
@@ -168,13 +263,24 @@ define temp-table temp-historico            no-undo
 
 
      
-define dataset ds-valor-beneficiario
-    for temp-valor-beneficiario, 
-        temp-valor-beneficiario-mes
+define dataset ds-dados
+    for temp-contrato,
+        temp-valor-beneficiario, 
+        temp-valor-beneficiario-mes,
+        temp-valor-faturado-mes
+    parent-id-relation r1
+        for temp-contrato,
+            temp-valor-beneficiario
+            parent-id-field rc-contrato
     parent-id-relation r2 
         for temp-valor-beneficiario, 
             temp-valor-beneficiario-mes
         parent-id-field rc-valor-benef
+    parent-id-relation r3 
+        for temp-valor-beneficiario, 
+            temp-valor-faturado-mes
+        parent-id-field rc-valor-benef
+    
     .                        
 
 /* ********************  Preprocessor Definitions  ******************** */

@@ -75,7 +75,7 @@ define new global shared variable v_cod_usuar_corren as character
 &Scoped-define INTERNAL-TABLES temp-contrato
 
 /* Definitions for BROWSE browseDados                                   */
-&Scoped-define FIELDS-IN-QUERY-browseDados temp-contrato.lg-marcado temp-contrato.in-modalidade temp-contrato.in-termo temp-contrato.in-proposta temp-contrato.ch-ultimo-reajuste temp-contrato.dc-percentual-ultimo-reajuste temp-contrato.ch-ultimo-faturamento temp-contrato.dc-contratante temp-contrato.dc-contratante-origem temp-contrato.ch-contratante temp-contrato.ch-contratante-origem temp-contrato.lg-possui-reajuste-ano-ref temp-contrato.lg-eventos-gerados temp-contrato.ch-usuario-evento temp-contrato.dt-geracao-evento   
+&Scoped-define FIELDS-IN-QUERY-browseDados temp-contrato.lg-marcado temp-contrato.in-modalidade temp-contrato.in-termo temp-contrato.in-proposta temp-contrato.ch-ultimo-reajuste temp-contrato.dc-percentual-ultimo-reajuste temp-contrato.ch-ultimo-faturamento temp-contrato.dc-contratante temp-contrato.dc-contratante-origem temp-contrato.ch-contratante temp-contrato.ch-contratante-origem temp-contrato.in-quantidade-parcelas temp-contrato.lg-possui-reajuste-ano-ref temp-contrato.lg-eventos-gerados temp-contrato.ch-usuario-evento temp-contrato.dt-geracao-evento   
 &Scoped-define ENABLED-FIELDS-IN-QUERY-browseDados temp-contrato.lg-marcado   
 &Scoped-define ENABLED-TABLES-IN-QUERY-browseDados temp-contrato
 &Scoped-define FIRST-ENABLED-TABLE-IN-QUERY-browseDados temp-contrato
@@ -124,6 +124,11 @@ define button buttonDetalhar
      label "Detalhar" 
      size 7.2 by 1.71 tooltip "Detalhar".
 
+define button buttonEditarParcelas 
+     image-up file "thealth/assets/edit_24_24.jpg":U no-focus flat-button
+     label "" 
+     size 7.2 by 1.71 tooltip "Editar parcelas".
+
 define button buttonElimininarEventos 
      image-up file "thealth/assets/cancel_24_24.jpg":U no-focus flat-button
      label "" 
@@ -137,7 +142,7 @@ define button buttonExpotar
 define button buttonHistorico 
      image-up file "thealth/assets/history_24_24.jpg":U no-focus flat-button
      label "" 
-     size 7.2 by 1.71 tooltip "Eliminar eventos".
+     size 7.2 by 1.71 tooltip "Historico".
 
 define button buttonParametros 
      image-up file "thealth/assets/process2_24_24.jpg":U no-focus flat-button
@@ -278,13 +283,15 @@ define browse browseDados
       temp-contrato.in-modalidade                     
     temp-contrato.in-termo                          
     temp-contrato.in-proposta                       
-    temp-contrato.ch-ultimo-reajuste                
+    temp-contrato.ch-ultimo-reajuste           
+         
     temp-contrato.dc-percentual-ultimo-reajuste     
     temp-contrato.ch-ultimo-faturamento             
     temp-contrato.dc-contratante                    
     temp-contrato.dc-contratante-origem             
     temp-contrato.ch-contratante                     
-    temp-contrato.ch-contratante-origem             
+    temp-contrato.ch-contratante-origem
+    temp-contrato.in-quantidade-parcelas                     
     temp-contrato.lg-possui-reajuste-ano-ref    view-as toggle-box
     temp-contrato.lg-eventos-gerados            view-as toggle-box
     temp-contrato.ch-usuario-evento             
@@ -341,15 +348,16 @@ define frame frameSuperior
          bgcolor 15 font 1 widget-id 200.
 
 define frame frameCorpo
-     buttonElimininarEventos at row 8.86 col 132 widget-id 52
-     buttonHistorico at row 10.52 col 132 widget-id 54
-     buttonAgendarEventos at row 5.48 col 132.2 widget-id 32
+     buttonEditarParcelas at row 5.48 col 132.2 widget-id 58
      checkOcultarSemReajuste at row 1.05 col 55 widget-id 50
      radioEdicaoBrowse at row 1.14 col 101.6 no-label widget-id 12
+     buttonAgendarEventos at row 7.14 col 132.2 widget-id 32
      browseDados at row 2.19 col 1 widget-id 500
-     buttonExpotar at row 7.14 col 132.2 widget-id 36
      checkMarcarTodos at row 2.24 col 1.6 widget-id 34
      buttonDetalhar at row 3.81 col 132.2 widget-id 30
+     buttonElimininarEventos at row 10.48 col 132.2 widget-id 52
+     buttonExpotar at row 8.81 col 132.2 widget-id 36
+     buttonHistorico at row 12.14 col 132.2 widget-id 54
      buttonParametros at row 2.14 col 132.2 widget-id 28
      buttonBrowseLimpar at row 1 col 133.2 widget-id 24
      buttonConfigBrowse at row 1 col 136 widget-id 26
@@ -411,9 +419,12 @@ assign frame frameCorpo:FRAME = frame frameDefault:HANDLE
 
 /* SETTINGS FOR FRAME frameCorpo
                                                                         */
-/* BROWSE-TAB browseDados radioEdicaoBrowse frameCorpo */
+/* BROWSE-TAB browseDados buttonAgendarEventos frameCorpo */
 assign 
        browseDados:ALLOW-COLUMN-SEARCHING in frame frameCorpo = true.
+
+assign 
+       buttonEditarParcelas:HIDDEN in frame frameCorpo           = true.
 
 /* SETTINGS FOR FRAME frameDefault
    FRAME-NAME                                                           */
@@ -501,6 +512,25 @@ end.
 &Scoped-define FRAME-NAME frameCorpo
 &Scoped-define SELF-NAME browseDados
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL browseDados winMain
+on any-key of browseDados in frame frameCorpo
+do:
+    if not available temp-contrato
+    then return.
+    
+    if lastkey = 32
+    or lastkey = 13
+    then do:
+        
+        assign temp-contrato.lg-marcado = not temp-contrato.lg-marcado.        
+        browse browseDados:refresh () no-error. 
+    end.   
+end.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL browseDados winMain
 on left-mouse-dblclick of browseDados in frame frameCorpo
 do: 
     run acaoDetalhar.  
@@ -557,6 +587,17 @@ end.
 on choose of buttonDetalhar in frame frameCorpo /* Detalhar */
 do:
     run acaoDetalhar.  
+end.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
+&Scoped-define SELF-NAME buttonEditarParcelas
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonEditarParcelas winMain
+on choose of buttonEditarParcelas in frame frameCorpo
+do:
+    run acaoAlterarParcelas.  
 end.
 
 /* _UIB-CODE-BLOCK-END */
@@ -682,7 +723,7 @@ MAIN-BLOCK:
 do on error   undo MAIN-BLOCK, leave MAIN-BLOCK:
     run enable_UI.
     run initializarInterface.
-    if not this-procedure:persistent then
+    if not this-procedure:persistent then  
         wait-for close of this-procedure.
 end.
 
@@ -691,6 +732,51 @@ end.
 
 
 /* **********************  Internal Procedures  *********************** */
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoAlterarParcelas winMain 
+procedure acaoAlterarParcelas private :
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define variable in-parcelas             as   integer    no-undo.
+
+    do on error undo, return:
+        
+        if not available temp-contrato
+        then return.
+        
+        assign in-parcelas  = temp-contrato.in-quantidade-parcelas.
+        
+        if temp-contrato.in-quantidade-parcelas-usuario > 0
+        then do:
+            
+            assign in-parcelas  = temp-contrato.in-quantidade-parcelas-usuario.
+        end.
+        
+        run thealth/reajuste-planos-saude/interface/reajuste-plano-editar.w (input-output in-parcelas).
+        
+        assign temp-contrato.in-quantidade-parcelas-usuario = in-parcelas.      
+
+        run buscarFaturamentoContrato in hd-api (input              temp-contrato.in-modalidade,
+                                                 input              temp-contrato.in-termo,
+                                                 input              integer (substring (textPeriodoReajuste:screen-value in frame frameSuperior, 4, 4)),
+                                                 input              integer (substring (textPeriodoReajuste:screen-value, 1, 2)),
+                                                 input              integer (substring (textPeriodoFat:screen-value, 4, 4)),
+                                                 input              integer (substring (textPeriodoFat:screen-value, 1, 2)),
+                                                 input-output table temp-contrato by-reference,
+                                                 input-output table temp-valor-beneficiario by-reference,
+                                                 input-output table temp-valor-beneficiario-mes by-reference,
+                                                 input-output table temp-valor-faturado-mes by-reference).
+                                                 
+        browse browseDados:refresh().                                                 
+
+    end.
+
+end procedure.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoAtualizarFiltro winMain 
 procedure acaoAtualizarFiltro private :
@@ -733,10 +819,10 @@ procedure acaoDetalhar private :
     
     do on error undo, return:
         
-        run thealth/reajuste-planos-saude/interface/reajuste-plano-detalhar.w (input  temp-contrato.in-modalidade,
-                                                                               input  temp-contrato.in-termo,
-                                                                               input  table temp-contrato by-reference,
-                                                                               input  table temp-valor-beneficiario by-reference).
+        run thealth/reajuste-planos-saude/interface/reajuste-plano-detalhar.w (input              temp-contrato.in-modalidade,
+                                                                               input              temp-contrato.in-termo,
+                                                                               input-output table temp-contrato,
+                                                                               input-output table temp-valor-beneficiario).
                                        
         catch cs-erro as Progress.Lang.Error :
             
@@ -755,9 +841,8 @@ end procedure.
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
 
-
-&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoEliminar winMain
-procedure acaoEliminar private:
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoEliminar winMain 
+procedure acaoEliminar private :
 /*------------------------------------------------------------------------------
  Purpose:
  Notes:
@@ -780,7 +865,7 @@ procedure acaoEliminar private:
             
             message 'Selecione ao menos um contrato com eventos gerados para cancelar'
             view-as alert-box information buttons ok.
-            return.
+            return. 
         end.
         
         message substitute ('Confirma remover os eventos gerados para &1 contrato&2?',
@@ -793,8 +878,12 @@ procedure acaoEliminar private:
         
         subscribe to EV_API_REAJUSTE_PLANO_ELIMINAR_EVENTO in hd-api run-procedure 'eventoApiEliminar'.
         
-        run thealth/libs/status-processamento.w persistent set hd-status (input  'Eliminando eventos',
-                                                                          input  no).
+        if not valid-handle (hd-status)
+        then do:
+            
+            run thealth/libs/status-processamento.w persistent set hd-status (input  'Eliminando eventos',
+                                                                              input  no).
+        end.
                                                                           
         run eliminarEventos in hd-api (input  table temp-contrato by-reference).
         
@@ -828,11 +917,9 @@ procedure acaoEliminar private:
     end.
 
 end procedure.
-    
+
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
-
-
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoExportar winMain 
 procedure acaoExportar private :
@@ -848,6 +935,7 @@ procedure acaoExportar private :
     do on error undo, return:
         
         find first temp-contrato no-error.
+        
         
         if not available temp-contrato
         then do:
@@ -876,17 +964,32 @@ procedure acaoExportar private :
         
         for each temp-contrato,
             each temp-valor-beneficiario
-           where temp-contrato.in-modalidade    = temp-valor-beneficiario.in-modalidade
-             and temp-contrato.in-termo         = temp-valor-beneficiario.in-termo:
+           where temp-valor-beneficiario.in-modalidade  = temp-contrato.in-modalidade
+             and temp-valor-beneficiario.in-termo       = temp-contrato.in-termo
+        break by temp-valor-beneficiario.in-usuario:
                  
             run mostrarMensagem in hd-status (input  substitute ('Formatando dados do benefici rio &1/&2/&3',
                                                                  temp-valor-beneficiario.in-modalidade,
                                                                  temp-valor-beneficiario.in-termo,
                                                                  temp-valor-beneficiario.in-usuario)).                             
             process events.                 
-            create temp-exportar.
-            buffer-copy temp-contrato to temp-exportar.
-            buffer-copy temp-valor-beneficiario to temp-exportar.
+            
+            if first-of (temp-valor-beneficiario.in-usuario)
+            then do:
+                
+                create temp-exportar.
+                buffer-copy temp-contrato to temp-exportar.
+                buffer-copy temp-valor-beneficiario 
+                     except temp-valor-beneficiario.in-quantidade-parcelas
+                            temp-valor-beneficiario.dc-valor-cobrar
+                         to temp-exportar.
+            end.
+ 
+            assign temp-exportar.dc-valor-total-cobrar  = temp-exportar.dc-valor-total-cobrar + 
+                                                          temp-valor-beneficiario.dc-valor-cobrar
+                   temp-exportar.in-quantidade-parcelas = temp-exportar.in-quantidade-parcelas + 
+                                                          temp-valor-beneficiario.in-quantidade-parcelas            
+                   .            
         end.
         
         run thealth/libs/exportar-excel.p persistent set hd-exportar.
@@ -910,13 +1013,17 @@ procedure acaoExportar private :
                                     cs-erro:GetMessage(1))
                 view-as alert-box error buttons ok.
             end.
-            else do:
+            else do: 
             
                 message substitute ("Ops...~nOcorreu um erro ao exportar.~nInforme a TI com um print desta mensagem.~n&1",
                                     cs-erro:GetMessage(1))
                 view-as alert-box error buttons ok.
             end.    
         end catch.
+        finally:
+            
+            delete object hd-status.
+        end.
     end.
 
 end procedure.
@@ -955,7 +1062,7 @@ procedure acaoGerarEventos private :
     for each buf-temp-contrato
        where buf-temp-contrato.lg-marcado                   = yes
          and buf-temp-contrato.lg-possui-reajuste-ano-ref   = yes
-         and buf-temp-contrato.lg-eventos-gerados           = no:
+         and buf-temp-contrato.lg-eventos-gerados           = no:   
              
         assign in-conta = in-conta + 1.
     end.             
@@ -1021,9 +1128,8 @@ end procedure.
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
 
-
-&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoHistorico winMain
-procedure acaoHistorico private:
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoHistorico winMain 
+procedure acaoHistorico private :
 /*------------------------------------------------------------------------------
  Purpose:
  Notes:
@@ -1032,7 +1138,7 @@ procedure acaoHistorico private:
         
         run thealth/reajuste-planos-saude/interface/reajuste-plano-historico.w (input              temp-contrato.in-modalidade,
                                                                                 input              temp-contrato.in-termo,
-                                                                                input-output table temp-contrato by-reference).
+                                                                                input-output table temp-contrato).
         
         catch cs-erro as Progress.Lang.Error : 
             
@@ -1053,11 +1159,9 @@ procedure acaoHistorico private:
     end.
 
 end procedure.
-    
+
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
-
-
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoMarcarTodos winMain 
 procedure acaoMarcarTodos private :
@@ -1065,9 +1169,17 @@ procedure acaoMarcarTodos private :
  Purpose:
  Notes:
 ------------------------------------------------------------------------------*/
-    for each temp-contrato:
+
+    query browseDados:get-first ().
+    repeat:
+        
+        if not available temp-contrato
+        then leave.
         
         assign temp-contrato.lg-marcado = checkMarcarTodos:checked in frame frameCorpo.
+        
+        if not query browseDados:get-next() 
+        then leave.
     end.
     
     browse browseDados:refresh () no-error.    
@@ -1121,13 +1233,21 @@ procedure acaoPesquisar private :
     
     do on error undo, return:
         
-        run thealth/libs/status-processamento.w persistent set hd-status (input  "Processando", no).
+        
+        if not valid-handle (hd-status)
+        then do:        
+        
+            run thealth/libs/status-processamento.w persistent set hd-status (input  "Processando", no).
+        end.
         
         assign checkMarcarTodos:checked in frame frameCorpo = no.
-        apply 'value-changed' to checkMarcarTodos.
         process events.
         
         subscribe to EV_API_REAJUSTE_PLANO_CONSULTAR in hd-api run-procedure "eventoApiConsultar".
+     
+        empty temp-table temp-contrato.
+        empty temp-table temp-valor-beneficiario.
+        empty temp-table temp-valor-beneficiario-mes.
      
         run buscarContratos in hd-api (input        integer (textModalidadeIni:screen-value in frame frameSuperior),
                                        input        integer (textModalidadeFim:screen-value),
@@ -1227,10 +1347,10 @@ procedure enable_UI :
   {&OPEN-BROWSERS-IN-QUERY-frameSuperior}
   display checkOcultarSemReajuste radioEdicaoBrowse checkMarcarTodos 
       with frame frameCorpo in window winMain.
-  enable buttonElimininarEventos buttonHistorico buttonAgendarEventos 
-         checkOcultarSemReajuste radioEdicaoBrowse browseDados buttonExpotar 
-         checkMarcarTodos buttonDetalhar buttonParametros buttonBrowseLimpar 
-         buttonConfigBrowse 
+  enable buttonEditarParcelas checkOcultarSemReajuste radioEdicaoBrowse 
+         buttonAgendarEventos browseDados checkMarcarTodos buttonDetalhar 
+         buttonElimininarEventos buttonExpotar buttonHistorico buttonParametros 
+         buttonBrowseLimpar buttonConfigBrowse 
       with frame frameCorpo in window winMain.
   {&OPEN-BROWSERS-IN-QUERY-frameCorpo}
   enable buttonSair 
@@ -1260,9 +1380,8 @@ end procedure.
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
 
-
-&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE eventoApiEliminar winMain
-procedure eventoApiEliminar:
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE eventoApiEliminar winMain 
+procedure eventoApiEliminar :
 /*------------------------------------------------------------------------------
  Purpose:
  Notes:
@@ -1284,11 +1403,9 @@ procedure eventoApiEliminar:
     process events.
 
 end procedure.
-    
+
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
-
-
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE initializarInterface winMain 
 procedure initializarInterface private :
@@ -1315,7 +1432,10 @@ procedure initializarInterface private :
         run widgetAlinharHorizontal (buttonConfigBrowse:handle, ALINHAR_HORIZONTAL_DIREITA).
         run widgetAlinharHorizontal (buttonParametros:handle, ALINHAR_HORIZONTAL_DIREITA).
         run widgetAlinharHorizontal (buttonDetalhar:handle, ALINHAR_HORIZONTAL_DIREITA).
+        run widgetAlinharHorizontal (buttonElimininarEventos:handle, ALINHAR_HORIZONTAL_DIREITA).
         run widgetAlinharHorizontal (buttonAgendarEventos:handle, ALINHAR_HORIZONTAL_DIREITA).
+        run widgetAlinharHorizontal (buttonHistorico:handle, ALINHAR_HORIZONTAL_DIREITA).
+        run widgetAlinharHorizontal (buttonExpotar:handle, ALINHAR_HORIZONTAL_DIREITA).
         
         run widgetRedimencionarX (frame frameRodape:handle).
         run widgetAlinharVertical (frame frameRodape:handle, ALINHAR_VERTICAL_INFERIOR).

@@ -242,7 +242,7 @@ OPEN QUERY {&SELF-NAME} FOR EACH temp-historico.
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL frameDialog frameDialog
 on window-close of frame frameDialog /* <insert dialog title> */
 do:
-  apply "END-ERROR":U to self.
+  apply "END-ERROR":U to self. 
 end.
 
 /* _UIB-CODE-BLOCK-END */
@@ -335,17 +335,7 @@ procedure acaoExportar private :
         
         run buscarDetalhamentoHistorico in hd-api (input  temp-historico.in-id-historico,
                                                    output lo-detalhes).
-                                                   
-        define variable jObj-detalhes   as   JsonObject         no-undo.
-        define variable jObj-parser     as   ObjectModelParser  no-undo.
-        
-        assign jObj-detalhes    = new JsonObject ()  
-               jObj-parser      = new ObjectModelParser ()
-               .
-        
-        assign jObj-detalhes = cast (jObj-parser:parse (lo-detalhes), JsonObject).
-                  
-        jObj-detalhes:write (lo-detalhes, yes).                  
+      
         
         copy-lob lo-detalhes to file ch-caminho-completo.
         

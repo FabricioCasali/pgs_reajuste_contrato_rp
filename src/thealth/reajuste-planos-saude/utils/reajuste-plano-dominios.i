@@ -24,6 +24,10 @@ function considerarEvento returns logical
     (in-evento as integer,
      ch-classe as character) forward.
 
+function faturamentoAntecipado returns logical 
+    (in-modalidade          as   integer,
+     in-termo               as   integer) forward.
+
 function usarRegraValorMesReferencia returns logical 
     (in-modalidade as   integer,
      in-termo      as   integer) forward.
@@ -50,6 +54,48 @@ function considerarEvento returns logical
     then assign lg-saida = yes.
     
     return lg-saida.
+end function.
+
+function faturamentoAntecipado returns logical 
+    (in-modalidade          as   integer,
+     in-termo               as   integer):
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/    
+    define buffer buf-propost       for  propost.
+    define variable in-plano        as   integer    no-undo.
+    define variable in-tipo-plano   as   integer    no-undo.
+    
+    if in-modalidade   <> 5
+    then return no.
+    
+    if not available propost
+    or propost.cd-modalidade   <> in-modalidade
+    or propost.nr-ter-adesao   <> in-termo 
+    then do:
+        
+        find first buf-propost no-lock
+             where buf-propost.cd-modalidade    = in-modalidade
+               and buf-propost.nr-ter-adesao    = in-termo.
+               
+        assign in-plano         = buf-propost.cd-plano
+               in-tipo-plano    = buf-propost.cd-tipo-plano
+               .                       
+    end.
+    else do:
+        
+        assign in-plano         = propost.cd-plano
+               in-tipo-plano    = propost.cd-tipo-plano
+               .                               
+    end.
+    
+    if in-plano = 6
+    or in-plano = 7
+    then return yes.
+    
+    return no.
+
 end function.
 
 function usarRegraValorMesReferencia returns logical 
