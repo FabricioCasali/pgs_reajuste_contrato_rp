@@ -13,7 +13,8 @@
   ----------------------------------------------------------------------*/
 
 /* ***************************  Definitions  ************************** */
-define variable PARAM_EVENTO_REAJUSTE       as   character  init 'parametro.evento_reajuste'.
+define variable PARAM_EVENTO_REAJUSTE_PF    as   character  init 'parametro.evento_reajuste_pf'. 
+define variable PARAM_EVENTO_REAJUSTE_PJ    as   character  init 'parametro.evento_reajuste_pj'.
 define variable PARAM_LAYOUT_BROWSE         as   character  init 'layout.browse'.
 
 

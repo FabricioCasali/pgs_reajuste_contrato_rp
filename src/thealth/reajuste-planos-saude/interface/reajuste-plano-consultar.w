@@ -833,7 +833,7 @@ procedure acaoDetalhar private :
         end catch.
         finally:
             
-        end finally.        
+        end finally.
     end. 
 
 end procedure.
@@ -960,36 +960,64 @@ procedure acaoExportar private :
                 
         run thealth/libs/status-processamento.w persistent set hd-status (input  "Exportando", no).
         
-        empty temp-table temp-exportar.
+        empty temp-table temp-exportar.  
         
-        for each temp-contrato,
-            each temp-valor-beneficiario
-           where temp-valor-beneficiario.in-modalidade  = temp-contrato.in-modalidade
-             and temp-valor-beneficiario.in-termo       = temp-contrato.in-termo
-        break by temp-valor-beneficiario.in-usuario:
-                 
-            run mostrarMensagem in hd-status (input  substitute ('Formatando dados do benefici rio &1/&2/&3',
-                                                                 temp-valor-beneficiario.in-modalidade,
-                                                                 temp-valor-beneficiario.in-termo,
-                                                                 temp-valor-beneficiario.in-usuario)).                             
-            process events.                 
+        for each temp-contrato:
             
-            if first-of (temp-valor-beneficiario.in-usuario)
+            log-manager:write-message (substitute ("lendo contrato &1/&2", temp-contrato.in-modalidade, temp-contrato.in-termo), "DEBUG") no-error.                 
+            
+            if not can-find (first temp-valor-beneficiario
+                             where temp-valor-beneficiario.in-modalidade  = temp-contrato.in-modalidade
+                               and temp-valor-beneficiario.in-termo       = temp-contrato.in-termo)
             then do:
                 
-                create temp-exportar.
-                buffer-copy temp-contrato to temp-exportar.
-                buffer-copy temp-valor-beneficiario 
-                     except temp-valor-beneficiario.in-quantidade-parcelas
-                            temp-valor-beneficiario.dc-valor-cobrar
-                         to temp-exportar.
-            end.
- 
-            assign temp-exportar.dc-valor-total-cobrar  = temp-exportar.dc-valor-total-cobrar + 
-                                                          temp-valor-beneficiario.dc-valor-cobrar
-                   temp-exportar.in-quantidade-parcelas = temp-exportar.in-quantidade-parcelas + 
-                                                          temp-valor-beneficiario.in-quantidade-parcelas            
-                   .            
+                run mostrarMensagem in hd-status (input  substitute ('Buscando detalhes do contrato &1/&2',
+                                                                     temp-contrato.in-modalidade,
+                                                                     temp-contrato.in-termo))
+                    . 
+                
+                run buscarFaturamentoContrato in hd-api (input        temp-contrato.in-modalidade,
+                                                         input        temp-contrato.in-termo,
+                                                         input        integer (substring (temp-contrato.ch-ultimo-reajuste, 4, 4)),
+                                                         input        integer (substring (temp-contrato.ch-ultimo-reajuste, 1, 2)),
+                                                         input        integer (substring (textPeriodoFat:screen-value in frame frameSuperior, 4, 4)),
+                                                         input        integer (substring (textPeriodoFat:screen-value, 1, 2)),
+                                                         input-output table temp-contrato by-reference,
+                                                         input-output table temp-valor-beneficiario by-reference,
+                                                         input-output table temp-valor-beneficiario-mes by-reference,
+                                                         input-output table temp-valor-faturado-mes by-reference)
+                                                         .
+            end.                                                         
+                                                         
+            for each temp-valor-beneficiario
+               where temp-valor-beneficiario.in-modalidade  = temp-contrato.in-modalidade
+                 and temp-valor-beneficiario.in-termo       = temp-contrato.in-termo
+            break by temp-valor-beneficiario.in-usuario:
+    
+                run mostrarMensagem in hd-status (input  substitute ('Formatando dados do benefici rio &1/&2/&3',
+                                                                     temp-valor-beneficiario.in-modalidade,
+                                                                     temp-valor-beneficiario.in-termo,
+                                                                     temp-valor-beneficiario.in-usuario)).                             
+                process events.
+                
+                if first-of (temp-valor-beneficiario.in-usuario)
+                then do:
+                    
+                    log-manager:write-message (substitute ("criando temp-exportar do contrato &1/&2", temp-contrato.in-modalidade, temp-contrato.in-termo), "DEBUG") no-error.
+                    create temp-exportar.
+                    buffer-copy temp-contrato to temp-exportar.
+                    buffer-copy temp-valor-beneficiario 
+                         except temp-valor-beneficiario.in-quantidade-parcelas
+                                temp-valor-beneficiario.dc-valor-cobrar
+                             to temp-exportar.
+                end.
+     
+                assign temp-exportar.dc-valor-total-cobrar  = temp-exportar.dc-valor-total-cobrar + 
+                                                              temp-valor-beneficiario.dc-valor-cobrar
+                       temp-exportar.in-quantidade-parcelas = temp-exportar.in-quantidade-parcelas + 
+                                                              temp-valor-beneficiario.in-quantidade-parcelas            
+                       .
+            end.            
         end.
         
         run thealth/libs/exportar-excel.p persistent set hd-exportar.
@@ -998,7 +1026,7 @@ procedure acaoExportar private :
                
         run exportarExcel in hd-exportar (input  ch-caminho-completo,
                                           input  buffer temp-exportar:handle).
-        
+         
         message substitute ('Planilha gerada em &1',
                             ch-caminho-completo)
         view-as alert-box information buttons ok.    
@@ -1022,7 +1050,14 @@ procedure acaoExportar private :
         end catch.
         finally:
             
-            delete object hd-status.
+            if valid-handle (hd-exportar)
+            then do:
+                
+                unsubscribe to EV_EXPORTAR_EXCEL_LINHA in hd-exportar.
+                delete object hd-exportar no-error.
+            end.
+            
+            delete object hd-status no-error.
         end.
     end.
 
@@ -1407,6 +1442,24 @@ end procedure.
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
 
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE eventoExportar winMain
+procedure eventoExportar:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input  parameter in-linha            as   integer    no-undo.
+    
+    run mostrarMensagem in hd-status (input  substitute ('Exportando linha &1', in-linha)) no-error.
+
+end procedure.
+    
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
+
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE initializarInterface winMain 
 procedure initializarInterface private :
 /*------------------------------------------------------------------------------
@@ -1436,6 +1489,7 @@ procedure initializarInterface private :
         run widgetAlinharHorizontal (buttonAgendarEventos:handle, ALINHAR_HORIZONTAL_DIREITA).
         run widgetAlinharHorizontal (buttonHistorico:handle, ALINHAR_HORIZONTAL_DIREITA).
         run widgetAlinharHorizontal (buttonExpotar:handle, ALINHAR_HORIZONTAL_DIREITA).
+        run widgetAlinharHorizontal (buttonEditarParcelas:handle, ALINHAR_HORIZONTAL_DIREITA).
         
         run widgetRedimencionarX (frame frameRodape:handle).
         run widgetAlinharVertical (frame frameRodape:handle, ALINHAR_VERTICAL_INFERIOR).

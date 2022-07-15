@@ -243,14 +243,13 @@ procedure buscarContratos:
                temp-contrato.ch-ultimo-faturamento          = substitute ('&1/&2', string (ter-ade.mm-ult-fat, '99'), string (ter-ade.aa-ult-fat, '9999'))
                .
 
-               
         if  in-mes-ult-reaj = in-mes-reaj-filtro
         and in-ano-ult-reaj = in-ano-reaj-filtro
         and not temp-contrato.lg-eventos-gerados
         then do:
-
-        assign temp-contrato.lg-possui-reajuste-ano-ref = yes
-               .
+            
+            assign temp-contrato.lg-possui-reajuste-ano-ref = yes
+                   .
 
             run buscarFaturamentoContrato (input              propost.cd-modalidade,
                                            input              propost.nr-ter-adesao,
@@ -262,10 +261,8 @@ procedure buscarContratos:
                                            input-output table temp-valor-beneficiario by-reference,
                                            input-output table temp-valor-beneficiario-mes by-reference,
                                            input-output table temp-valor-faturado-mes by-reference 
-                                           ).    
+                                           ).
         end.
-
-               
     end.
     
 end procedure.
@@ -671,14 +668,6 @@ procedure buscarFaturamentoContrato:
             then leave bloco_repeat.
         end.                                   
     end.  
-    
-        define variable lo-saida as longchar no-undo.
-    
-    
-    run gerarJson (output lo-saida).
-    
-    copy-lob lo-saida to file     "c:/temp/casali/p5/dados.json".
-    
 end procedure.
 
 
@@ -853,12 +842,15 @@ procedure criarEventosContratos:
     define input-output parameter table             for  temp-valor-beneficiario-mes.
         
     define variable lo-parametro                    as   longchar   no-undo.
-    define variable in-evento                       as   integer    no-undo.    
+    define variable in-evento-pf                    as   integer    no-undo.    
+    define variable in-evento-pj                    as   integer    no-undo.
     define variable in-mes                          as   integer    no-undo.
     define variable in-ano                          as   integer    no-undo.
     define variable in-quantidade-parcelas          as   integer    no-undo.
     define variable dc-valor-cobrado                as   decimal    no-undo.
     define variable lo-data-json                    as   longchar   no-undo.
+    define variable ch-per-ini                      as   character  no-undo.
+    define variable ch-per-fim                      as   character  no-undo.                
             
     do transaction on error undo, throw:
         
@@ -868,14 +860,26 @@ procedure criarEventosContratos:
         run buscarParametro in hd-api-config (input  "th-gps-param",
                                               input  "reajuste-plano", 
                                               input  ?,
-                                              input  PARAM_EVENTO_REAJUSTE,   
+                                              input  PARAM_EVENTO_REAJUSTE_PF,   
+                                              output lo-parametro) no-error.
+                                               
+        if lo-parametro = ?
+        or lo-parametro = ''
+        then undo, throw new AppError('Evento para cobran‡a de pessoa f¡sica nÆo parametrizado.~nAcesse os parƒmetros do programa para registrar o evento').                                              
+                                              
+        assign in-evento-pf = integer (lo-parametro).        
+
+        run buscarParametro in hd-api-config (input  "th-gps-param",
+                                              input  "reajuste-plano", 
+                                              input  ?,
+                                              input  PARAM_EVENTO_REAJUSTE_PJ,   
                                               output lo-parametro) no-error.
                                               
         if lo-parametro = ?
         or lo-parametro = ''
-        then undo, throw new AppError('Evento para cobran‡a nÆo parametrizado.~nAcesse os parƒmetros do programa para registrar o evento').                                              
+        then undo, throw new AppError('Evento para cobran‡a de pessoa jur¡dica nÆo parametrizado.~nAcesse os parƒmetros do programa para registrar o evento').                                              
                                               
-        assign in-evento    = integer (lo-parametro).        
+        assign in-evento-pj = integer (lo-parametro).        
         
         for each temp-contrato
            where temp-contrato.lg-marcado                   = yes
@@ -890,8 +894,9 @@ procedure criarEventosContratos:
                    dc-valor-cobrado         = 0
                    .
                    
-            define variable ch-per-ini as character no-undo.
-            define variable ch-per-fim as character no-undo.                   
+            find first modalid no-lock
+                 where modalid.cd-modalidade    = temp-contrato.in-modalidade
+                       .                   
                    
             for each temp-valor-beneficiario
                where temp-valor-beneficiario.in-modalidade      = temp-contrato.in-modalidade
@@ -916,13 +921,17 @@ procedure criarEventosContratos:
                     assign in-quantidade-parcelas   = in-quantidade-parcelas + 1
                            dc-valor-cobrado         = dc-valor-cobrado + temp-valor-beneficiario-mes.dc-valor-parcela
                            .                         
+                           
+                                           
                          
                     run criarEventoProgramado (input  temp-valor-beneficiario-mes.in-modalidade,
                                                input  temp-valor-beneficiario-mes.in-termo,
                                                input  temp-valor-beneficiario-mes.in-usuario,
                                                input  in-ano, 
                                                input  in-mes,
-                                               input  in-evento,
+                                               input  if modalid.in-tipo-pessoa = 'F'
+                                                      then in-evento-pf
+                                                      else in-evento-pj,
                                                input  temp-valor-beneficiario-mes.dc-valor-parcela,
                                                input  substitute ('Valor reajuste retroativo referente ao mˆs &1/&2',
                                                                   string (temp-valor-beneficiario-mes.in-mes, '99'),
@@ -932,7 +941,7 @@ procedure criarEventosContratos:
                     assign in-mes   = in-mes + 1.
                            
                     if in-mes > 12 
-                    then do:
+                    then do: 
                         
                         assign in-ano   = in-ano + 1
                                in-mes   = 1.
@@ -1010,7 +1019,8 @@ procedure eliminarEventos:
     define variable in-ano-ini              as   integer    no-undo.
     define variable in-mes-ini              as   integer    no-undo.
     define variable lo-parametro            as   longchar   no-undo.
-    define variable in-evento               as   integer    no-undo.
+    define variable in-evento-pf            as   integer    no-undo.
+    define variable in-evento-pj            as   integer    no-undo.
     
     do transaction on error undo, throw:
         
@@ -1020,15 +1030,27 @@ procedure eliminarEventos:
         run buscarParametro in hd-api-config (input  "th-gps-param",
                                               input  "reajuste-plano", 
                                               input  ?,
-                                              input  PARAM_EVENTO_REAJUSTE,   
+                                              input  PARAM_EVENTO_REAJUSTE_PF,   
                                               output lo-parametro) no-error.
                                               
         if lo-parametro = ?
         or lo-parametro = ''
-        then undo, throw new AppError('Evento para cobran‡a nÆo parametrizado.~nAcesse os parƒmetros do programa para registrar o evento').                                              
+        then undo, throw new AppError('Evento para cobran‡a de pessoa f¡sica nÆo parametrizado.~nAcesse os parƒmetros do programa para registrar o evento').                                              
                                               
-        assign in-evento    = integer (lo-parametro).             
-        
+        assign in-evento-pf = integer (lo-parametro).        
+
+        run buscarParametro in hd-api-config (input  "th-gps-param",
+                                              input  "reajuste-plano", 
+                                              input  ?,
+                                              input  PARAM_EVENTO_REAJUSTE_PJ,   
+                                              output lo-parametro) no-error.
+                                              
+        if lo-parametro = ?
+        or lo-parametro = ''
+        then undo, throw new AppError('Evento para cobran‡a de pessoa jur¡dica nÆo parametrizado.~nAcesse os parƒmetros do programa para registrar o evento').                                              
+                                              
+        assign in-evento-pj = integer (lo-parametro).                                            
+            
         for each temp-contrato 
            where temp-contrato.lg-marcado:
 
@@ -1055,7 +1077,11 @@ procedure eliminarEventos:
                    
             find current reajuste-contrato exclusive-lock.
             
-            assign reajuste-contrato.lg-cancelado   = yes.                   
+            assign reajuste-contrato.lg-cancelado   = yes.
+            
+            find first modalid no-lock
+                 where modalid.cd-modalidade = reajuste-contrato.in-modalidade
+                       .                   
 
             repeat:
                 
@@ -1064,8 +1090,10 @@ procedure eliminarEventos:
                      and event-progdo-bnfciar.nr-ter-adesao = temp-contrato.in-termo
                      and event-progdo-bnfciar.cd-usuario    > 0
                      and event-progdo-bnfciar.aa-referencia = in-ano
-                     and event-progdo-bnfciar.mm-referencia = in-mes
-                     and event-progdo-bnfciar.cd-evento     = in-evento:
+                     and event-progdo-bnfciar.mm-referencia = in-mes 
+                     and event-progdo-bnfciar.cd-evento     = if modalid.in-tipo-pessoa = 'F'
+                                                              then in-evento-pf
+                                                              else in-evento-pj:
                          
                     publish EV_API_REAJUSTE_PLANO_ELIMINAR_EVENTO (input  event-progdo-bnfciar.cd-modalidade,       
                                                                    input  event-progdo-bnfciar.nr-ter-adesao,
@@ -1179,7 +1207,7 @@ procedure gerarJson private:
     
     jObj-contrato:Add("valores", jArr-valor-benef).          
     
-    jObj-contrato:write (lo-saida, yes).
+    jObj-contrato:write (lo-saida, no).
     
              
 
