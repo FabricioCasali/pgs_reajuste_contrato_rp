@@ -28,6 +28,10 @@ function faturamentoAntecipado returns logical
     (in-modalidade          as   integer,
      in-termo               as   integer) forward.
 
+function tipoContratoPessoa returns character 
+    (input  in-modalidade               as   integer,
+     input  in-termo                    as   integer) forward.
+
 function usarRegraValorMesReferencia returns logical 
     (in-modalidade as   integer,
      in-termo      as   integer) forward.
@@ -51,6 +55,7 @@ function considerarEvento returns logical
         
     if in-evento = 111
     or in-evento = 113 
+    or in-evento = 311
     then assign lg-saida = yes.
     
     return lg-saida.
@@ -96,6 +101,39 @@ function faturamentoAntecipado returns logical
     
     return no.
 
+end function.
+
+function tipoContratoPessoa returns character 
+    (input  in-modalidade               as   integer,
+     input  in-termo                    as   integer  ):
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/    
+ 
+    define buffer  buf-propost  for  propost.
+    define buffer  buf-modalid  for  modalid.
+    
+    for first buf-propost no-lock
+        where buf-propost.cd-modalidade    = in-modalidade
+          and buf-propost.nr-ter-adesao    = in-termo,
+        first buf-modalid no-lock
+        where buf-modalid.cd-modalidade    = buf-propost.cd-modalidade:
+
+       if buf-propost.cd-modalidade = 7 and (buf-propost.cd-plano = 9 or buf-propost.cd-plano = 15
+       or buf-propost.cd-plano = 17 or buf-propost.cd-plano = 21 or buf-propost.cd-plano = 22 or buf-propost.cd-plano = 24
+       or buf-propost.cd-plano = 26 or buf-propost.cd-plano = 27 or buf-propost.cd-plano = 28 or buf-propost.cd-plano = 29
+       or buf-propost.cd-plano = 30 or buf-propost.cd-plano = 35 or buf-propost.cd-plano = 36 or buf-propost.cd-plano = 37
+       or buf-propost.cd-plano = 39 or buf-propost.cd-plano = 40 or buf-propost.cd-plano = 41 or buf-propost.cd-plano = 42
+       or buf-propost.cd-plano = 43 or buf-propost.cd-plano = 44 or buf-propost.cd-plano = 49 or buf-propost.cd-plano = 51
+       or buf-propost.cd-plano = 52 or buf-propost.cd-plano = 57 or buf-propost.cd-plano = 58 or buf-propost.cd-plano = 61
+       or buf-propost.cd-plano = 62 or buf-propost.cd-plano = 68) then return "PJ". 
+ 
+        if  buf-modalid.in-tipo-pessoa = 'F'
+        then return 'PF'.
+        else return 'PJ'.
+    end.  
+        
 end function.
 
 function usarRegraValorMesReferencia returns logical 

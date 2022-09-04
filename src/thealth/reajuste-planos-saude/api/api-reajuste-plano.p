@@ -7,7 +7,7 @@
 
     Description : 
 
-    Author(s)   : fabri
+    Author(s)   : fabri 
     Created     : Tue Jun 07 07:12:46 BRT 2022
     Notes       :
   ----------------------------------------------------------------------*/
@@ -70,7 +70,7 @@ procedure buscarContratos:
     define input  parameter ch-tipo-pessoa              as   character  no-undo.
     define input  parameter ch-periodo-fat              as   character  no-undo.
     define input  parameter ch-periodo-reajuste         as   character  no-undo.
-    
+     
     define output parameter table                       for  temp-contrato. 
     define output parameter table                       for  temp-valor-beneficiario.
     define output parameter table                       for  temp-valor-beneficiario-mes.
@@ -132,8 +132,7 @@ procedure buscarContratos:
          and propost.cd-convenio       >= &5    ~n
          and propost.cd-convenio       <= &6,   ~n
        first ter-ade no-lock                    ~n
-          of propost                            ~n
-       where ter-ade.dt-inicio         <= &7,   ~n
+          of propost                            ~n,
        first contrat no-lock                    ~n
        where contrat.cd-contratante     = propost.cd-contratante",
                                               in-contratante-ini,
@@ -331,7 +330,7 @@ procedure buscarFaturamentoContrato:
     define variable in-numero-parcela as   integer  no-undo.
     define variable in-conta          as   integer  no-undo.
     define variable dc-valor-parcela     as decimal no-undo.
-    define variable dc-saldo             as decimal no-undo.
+    define variable dc-saldo             as decimal no-undo. 
     
     assign in-ano           = in-ano-ref
            in-mes           = in-mes-ref
@@ -850,7 +849,8 @@ procedure criarEventosContratos:
     define variable dc-valor-cobrado                as   decimal    no-undo.
     define variable lo-data-json                    as   longchar   no-undo.
     define variable ch-per-ini                      as   character  no-undo.
-    define variable ch-per-fim                      as   character  no-undo.                
+    define variable ch-per-fim                      as   character  no-undo.
+    define variable ch-tipo-contrato-pessoa         as   character  no-undo.                
             
     do transaction on error undo, throw:
         
@@ -886,17 +886,15 @@ procedure criarEventosContratos:
              and temp-contrato.lg-possui-reajuste-ano-ref   = yes
              and temp-contrato.lg-eventos-gerados           = no:
                  
-            log-manager:write-message (substitute ("&1/&2 -> lendo contrato",
+            log-manager:write-message (substitute ("&1/&2 -> lendo contrato", 
                                                    temp-contrato.in-modalidade,
                                                    temp-contrato.in-termo), "DEBUG") no-error.                 
             
             assign in-quantidade-parcelas   = 0
                    dc-valor-cobrado         = 0
+                   ch-tipo-contrato-pessoa  = tipoContratoPessoa (temp-contrato.in-modalidade, temp-contrato.in-termo)
                    .
-                   
-            find first modalid no-lock
-                 where modalid.cd-modalidade    = temp-contrato.in-modalidade
-                       .                   
+                
                    
             for each temp-valor-beneficiario
                where temp-valor-beneficiario.in-modalidade      = temp-contrato.in-modalidade
@@ -911,7 +909,7 @@ procedure criarEventosContratos:
                 assign in-ano       = in-ano-fat
                        in-mes       = in-mes-fat
                        .
-
+ 
                 for each temp-valor-beneficiario-mes 
                    where temp-valor-beneficiario-mes.in-modalidade      = temp-valor-beneficiario.in-modalidade  
                      and temp-valor-beneficiario-mes.in-termo           = temp-valor-beneficiario.in-termo
@@ -929,7 +927,7 @@ procedure criarEventosContratos:
                                                input  temp-valor-beneficiario-mes.in-usuario,
                                                input  in-ano, 
                                                input  in-mes,
-                                               input  if modalid.in-tipo-pessoa = 'F'
+                                               input  if ch-tipo-contrato-pessoa = 'PF'
                                                       then in-evento-pf
                                                       else in-evento-pj,
                                                input  temp-valor-beneficiario-mes.dc-valor-parcela,
@@ -938,7 +936,7 @@ procedure criarEventosContratos:
                                                                   temp-valor-beneficiario-mes.in-ano))
                         .
         
-                    assign in-mes   = in-mes + 1.
+                    assign in-mes   = in-mes + 1. 
                            
                     if in-mes > 12 
                     then do: 

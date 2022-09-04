@@ -489,7 +489,7 @@ do:
     then return no-apply. 
     
     if  valid-handle (hd-api-config)
-    and lo-configuracao-browse <> ? 
+    and lo-configuracao-browse <> ?  
     then do:
         
         run salvarParametro in hd-api-config (input  "th-gps-param",
