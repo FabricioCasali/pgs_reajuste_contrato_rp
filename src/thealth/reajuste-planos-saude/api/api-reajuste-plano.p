@@ -132,7 +132,12 @@ procedure buscarContratos:
          and propost.cd-convenio       >= &5    ~n
          and propost.cd-convenio       <= &6,   ~n
        first ter-ade no-lock                    ~n
-          of propost                            ~n,
+          of propost                            ~n
+       where (    ter-ade.dt-inicio    <= &7    ~n
+              and propost.cd-convenio  <> 91    ~n
+              and propost.cd-convenio  <> 92)   ~n
+          or (   propost.cd-convenio    = 91    ~n
+              or propost.cd-convenio    = 92),  ~n
        first contrat no-lock                    ~n
        where contrat.cd-contratante     = propost.cd-contratante",
                                               in-contratante-ini,
