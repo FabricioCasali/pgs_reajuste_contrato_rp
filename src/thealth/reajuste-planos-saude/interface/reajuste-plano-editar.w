@@ -62,41 +62,41 @@ buttonConfirmar buttonCancelar
 /* Define a dialog box                                                  */
 
 /* Definitions of the field level widgets                               */
-define button buttonCancelar auto-end-key 
-     label "Cancela&r" 
-     size 15 by 1.14
-     bgcolor 8 .
+DEFINE BUTTON buttonCancelar AUTO-END-KEY 
+     LABEL "Cancela&r" 
+     SIZE 15 BY 1.14
+     BGCOLOR 8 .
 
-define button buttonConfirmar auto-go 
-     label "&Alterar" 
-     size 15 by 1.14
-     bgcolor 8 .
+DEFINE BUTTON buttonConfirmar AUTO-GO 
+     LABEL "&Alterar" 
+     SIZE 15 BY 1.14
+     BGCOLOR 8 .
 
-define variable textQuantidadeParcelas as integer format "99":U initial 0 
-     label "Quantidade parcelas" 
-     view-as fill-in 
-     size 14 by 1 no-undo.
+DEFINE VARIABLE textQuantidadeParcelas AS INTEGER FORMAT "99":U INITIAL 0 
+     LABEL "Quantidade parcelas" 
+     VIEW-AS FILL-IN 
+     SIZE 14 BY 1 NO-UNDO.
 
-define rectangle RECT-2
-     edge-pixels 2 graphic-edge  no-fill   
-     size 59 by 2.38.
+DEFINE RECTANGLE RECT-2
+     EDGE-PIXELS 2 GRAPHIC-EDGE  NO-FILL   
+     SIZE 59 BY 2.38.
 
 
 /* ************************  Frame Definitions  *********************** */
 
-define frame frameDialog
-     textQuantidadeParcelas at row 1.95 col 29 colon-aligned widget-id 2
-     buttonConfirmar at row 3.62 col 31
-     buttonCancelar at row 3.62 col 46
-     "Parcelar" view-as text
-          size 10 by .62 at row 1 col 5 widget-id 6
-     RECT-2 at row 1.24 col 2 widget-id 4
-     space(0.79) skip(1.37)
-    with view-as dialog-box keep-tab-order 
-         side-labels no-underline three-d  scrollable 
-         bgcolor 15 font 1
-         title "<insert dialog title>"
-         default-button buttonConfirmar cancel-button buttonCancelar widget-id 100.
+DEFINE FRAME frameDialog
+     textQuantidadeParcelas AT ROW 1.95 COL 29 COLON-ALIGNED WIDGET-ID 2
+     buttonConfirmar AT ROW 3.62 COL 31
+     buttonCancelar AT ROW 3.62 COL 46
+     "Parcelar" VIEW-AS TEXT
+          SIZE 10 BY .62 AT ROW 1 COL 5 WIDGET-ID 6
+     RECT-2 AT ROW 1.24 COL 2 WIDGET-ID 4
+     SPACE(0.79) SKIP(1.37)
+    WITH VIEW-AS DIALOG-BOX KEEP-TAB-ORDER 
+         SIDE-LABELS NO-UNDERLINE THREE-D  SCROLLABLE 
+         BGCOLOR 15 FONT 1
+         TITLE "<insert dialog title>"
+         DEFAULT-BUTTON buttonConfirmar CANCEL-BUTTON buttonCancelar WIDGET-ID 100.
 
 
 /* *********************** Procedure Settings ************************ */
@@ -116,9 +116,9 @@ define frame frameDialog
 &ANALYZE-SUSPEND _RUN-TIME-ATTRIBUTES
 /* SETTINGS FOR DIALOG-BOX frameDialog
    FRAME-NAME                                                           */
-assign 
-       frame frameDialog:SCROLLABLE       = false
-       frame frameDialog:HIDDEN           = true.
+ASSIGN 
+       FRAME frameDialog:SCROLLABLE       = FALSE
+       FRAME frameDialog:HIDDEN           = TRUE.
 
 /* _RUN-TIME-ATTRIBUTES-END */
 &ANALYZE-RESUME
@@ -131,7 +131,7 @@ assign
 
 &Scoped-define SELF-NAME frameDialog
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL frameDialog frameDialog
-on window-close of frame frameDialog /* <insert dialog title> */
+ON window-close OF FRAME frameDialog /* <insert dialog title> */
 do:
     apply "END-ERROR":U to self.
 end.
@@ -142,8 +142,9 @@ end.
 
 &Scoped-define SELF-NAME buttonCancelar
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonCancelar frameDialog
-on choose of buttonCancelar in frame frameDialog /* Cancelar */
+ON choose OF buttonCancelar IN FRAME frameDialog /* Cancelar */
 do:
+    assign in-quantidade-parcela    = ?.
     apply 'window-close' to frame frameDialog.  
 end.
 
@@ -153,7 +154,7 @@ end.
 
 &Scoped-define SELF-NAME buttonConfirmar
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonConfirmar frameDialog
-on choose of buttonConfirmar in frame frameDialog /* Alterar */
+ON choose OF buttonConfirmar IN FRAME frameDialog /* Alterar */
 do:
     assign in-quantidade-parcela    = integer (textQuantidadeParcelas:screen-value in frame frameDialog).
     apply 'window-close' to frame frameDialog.  
@@ -161,7 +162,6 @@ end.
 
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
-
 
 
 &UNDEFINE SELF-NAME
@@ -193,7 +193,7 @@ run disable_UI.
 /* **********************  Internal Procedures  *********************** */
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE disable_UI frameDialog  _DEFAULT-DISABLE
-procedure disable_UI :
+PROCEDURE disable_UI :
 /*------------------------------------------------------------------------------
   Purpose:     DISABLE the User Interface
   Parameters:  <none>
@@ -203,14 +203,14 @@ procedure disable_UI :
                we are ready to "clean-up" after running.
 ------------------------------------------------------------------------------*/
   /* Hide all frames. */
-  hide frame frameDialog.
-end procedure.
+  HIDE FRAME frameDialog.
+END PROCEDURE.
 
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE enable_UI frameDialog  _DEFAULT-ENABLE
-procedure enable_UI :
+PROCEDURE enable_UI :
 /*------------------------------------------------------------------------------
   Purpose:     ENABLE the User Interface
   Parameters:  <none>
@@ -220,19 +220,19 @@ procedure enable_UI :
                These statements here are based on the "Other 
                Settings" section of the widget Property Sheets.
 ------------------------------------------------------------------------------*/
-  display textQuantidadeParcelas 
-      with frame frameDialog.
-  enable RECT-2 textQuantidadeParcelas buttonConfirmar buttonCancelar 
-      with frame frameDialog.
-  view frame frameDialog.
+  DISPLAY textQuantidadeParcelas 
+      WITH FRAME frameDialog.
+  ENABLE RECT-2 textQuantidadeParcelas buttonConfirmar buttonCancelar 
+      WITH FRAME frameDialog.
+  VIEW FRAME frameDialog.
   {&OPEN-BROWSERS-IN-QUERY-frameDialog}
-end procedure.
+END PROCEDURE.
 
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE inicializarInterface frameDialog 
-procedure inicializarInterface :
+PROCEDURE inicializarInterface :
 /*------------------------------------------------------------------------------
  Purpose:
  Notes:

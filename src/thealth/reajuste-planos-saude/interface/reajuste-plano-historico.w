@@ -1,14 +1,14 @@
 &ANALYZE-SUSPEND _VERSION-NUMBER AB_v10r12 GUI
 &ANALYZE-RESUME
-&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CUSTOM _DECLARATIONS Procedure
-using Progress.Json.ObjectModel.JsonObject from propath.
-using Progress.Json.ObjectModel.ObjectModelParser from propath.
-&ANALYZE-RESUME
 /* Connected Databases 
 */
 &Scoped-define WINDOW-NAME CURRENT-WINDOW
 &Scoped-define FRAME-NAME frameDialog
-&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CUSTOM _DEFINITIONS frameDialog 
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CUSTOM _DECLARATIONS frameDialog 
+using Progress.Json.ObjectModel.JsonObject from propath.
+using Progress.Json.ObjectModel.ObjectModelParser from propath.
+
 /*------------------------------------------------------------------------
 
   File: 
@@ -41,6 +41,37 @@ define input-output parameter table             for  temp-contrato.
 /* Local Variable Definitions ---                                       */
 
 define variable hd-api                              as   handle     no-undo.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CUSTOM _DEFINITIONS frameDialog 
+/*------------------------------------------------------------------------
+
+  File: 
+
+  Description: 
+
+  Input Parameters:
+      <none>
+
+  Output Parameters:
+      <none>
+
+  Author: 
+
+  Created: 07/10/23 -  9:39 am
+
+------------------------------------------------------------------------*/
+/*          This .W file was created with the Progress AppBuilder.       */
+/*----------------------------------------------------------------------*/
+
+/* ***************************  Definitions  ************************** */
+
+/* Parameters Definitions ---                                           */
+
+/* Local Variable Definitions ---                                       */
 
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
@@ -127,6 +158,11 @@ define button buttonExportar
      label "Exportar" 
      size 5.6 by 1.43 tooltip "Exportar".
 
+define button buttonExportarPDF 
+     image-up file "thealth/assets/pdf_24_24.jpg":U
+     label "PDF Migracao" 
+     size 5.6 by 1.43 tooltip "PDF da migração de contrato".
+
 /* Query definitions                                                    */
 &ANALYZE-SUSPEND
 define query browseHistorico for 
@@ -170,6 +206,7 @@ define frame frameDialog
 define frame frameCorpo
      browseHistorico at row 1.95 col 1 widget-id 200
      buttonExportar at row 1.95 col 123 widget-id 4
+     buttonExportarPDF at row 3.38 col 123 widget-id 8
     with 1 down keep-tab-order overlay 
          side-labels no-underline three-d 
          at col 2 row 3.91
@@ -263,12 +300,22 @@ end.
 &ANALYZE-RESUME
 
 
-
 &Scoped-define SELF-NAME buttonExportar
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonExportar frameDialog
 on choose of buttonExportar in frame frameCorpo /* Exportar */
 do:
     run acaoExportar.  
+end.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
+&Scoped-define SELF-NAME buttonExportarPDF
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonExportarPDF frameDialog
+on choose of buttonExportarPDF in frame frameCorpo /* PDF Migracao */
+do:
+    run acaoExportarPDF.  
 end.
 
 /* _UIB-CODE-BLOCK-END */
@@ -328,7 +375,7 @@ procedure acaoExportar private :
                                           input  ch-nome-arquivo,
                                           input  yes,
                                           output lg-confirmar,
-                                          output ch-caminho-completo).
+                                          output ch-caminho-completo). 
                                           
         if not lg-confirmar
         then return.
@@ -346,6 +393,36 @@ end procedure.
 
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
+
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoExportarPDF frameDialog
+procedure acaoExportarPDF:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    do on error undo, return:
+        
+        if not available temp-historico
+        or temp-historico.ch-origem-historico   <> ORIGEM_HISTORICO_MIGRAR_EVENTO
+        then do:
+            
+            message "Selecione uma linha no hist¢rico relativa a migra‡Æo de valores para gerar o PDF"
+            view-as alert-box information buttons ok.
+            
+            return.
+        end.
+        
+        
+        
+    end.
+
+end procedure.
+    
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE disable_UI frameDialog  _DEFAULT-DISABLE
 procedure disable_UI :
@@ -383,7 +460,7 @@ procedure enable_UI :
       with frame frameDialog.
   view frame frameDialog.
   {&OPEN-BROWSERS-IN-QUERY-frameDialog}
-  enable browseHistorico buttonExportar 
+  enable browseHistorico buttonExportar buttonExportarPDF 
       with frame frameCorpo.
   {&OPEN-BROWSERS-IN-QUERY-frameCorpo}
 end procedure.
@@ -426,7 +503,6 @@ procedure inicializarInterface private :
                                                
         query browseHistorico:query-prepare ('preselect each temp-historico by temp-historico.dt-ocorrencia').
         query browseHistorico:query-open.                                                
-        
         
         catch cs-erro as Progress.Lang.Error : 
             

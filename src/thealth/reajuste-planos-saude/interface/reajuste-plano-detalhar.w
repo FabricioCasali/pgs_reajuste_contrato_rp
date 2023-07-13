@@ -244,7 +244,7 @@ OPEN QUERY {&SELF-NAME} FOR EACH temp-valor-beneficiario.
 on window-close of frame frameDialog /* <insert dialog title> */
 do:
   apply "END-ERROR":U to self.
-end.
+end. 
 
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME

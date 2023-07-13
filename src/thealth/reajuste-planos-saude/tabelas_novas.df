@@ -1,0 +1,302 @@
+ADD TABLE "reajuste-contrato-migracao-item"
+  AREA "Schema Area"
+  DUMP-NAME "reajuste-contrato-migracao"
+
+ADD FIELD "in-id" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 2
+  MAX-WIDTH 4
+  ORDER 10
+
+ADD FIELD "in-modalidade-origem" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 3
+  MAX-WIDTH 4
+  ORDER 20
+
+ADD FIELD "in-termo-origem" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 4
+  MAX-WIDTH 4
+  ORDER 30
+
+ADD FIELD "in-modalidade-destino" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 5
+  MAX-WIDTH 4
+  ORDER 40
+
+ADD FIELD "in-termo-destino" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 6
+  MAX-WIDTH 4
+  ORDER 50
+
+ADD FIELD "in-usuario-origem" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 7
+  MAX-WIDTH 4
+  ORDER 60
+
+ADD FIELD "in-usuario-destino" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 8
+  MAX-WIDTH 4
+  ORDER 70
+
+ADD FIELD "in-quantidade-eventos" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 9
+  MAX-WIDTH 4
+  ORDER 80
+
+ADD FIELD "dc-valor-evento" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 10
+  MAX-WIDTH 4
+  ORDER 90
+
+ADD FIELD "in-evento" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 11
+  MAX-WIDTH 4
+  ORDER 100
+
+ADD FIELD "in-faixa-etaria" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 12
+  MAX-WIDTH 4
+  ORDER 110
+
+ADD FIELD "in-grau-parentesco" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 13
+  MAX-WIDTH 4
+  ORDER 120
+
+ADD FIELD "dt-ocorrencia" OF "reajuste-contrato-migracao-item" AS datetime 
+  FORMAT "99/99/9999 HH:MM:SS.SSS"
+  INITIAL ?
+  POSITION 14
+  MAX-WIDTH 8
+  ORDER 130
+
+ADD FIELD "ch-usuario" OF "reajuste-contrato-migracao-item" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 15
+  MAX-WIDTH 40
+  ORDER 140
+
+ADD FIELD "in-ano" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 16
+  MAX-WIDTH 4
+  ORDER 150
+
+ADD FIELD "in-mes" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 17
+  MAX-WIDTH 4
+  ORDER 160
+
+ADD FIELD "in-sequencia-nota" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 18
+  MAX-WIDTH 4
+  ORDER 170
+
+ADD FIELD "in-fatura" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 19
+  MAX-WIDTH 4
+  ORDER 180
+
+ADD FIELD "dc-contratante" OF "reajuste-contrato-migracao-item" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 20
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 190
+
+ADD FIELD "in-id-lote" OF "reajuste-contrato-migracao-item" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 21
+  MAX-WIDTH 4
+  ORDER 200
+
+ADD INDEX "idxprimary" ON "reajuste-contrato-migracao-item" 
+  AREA "Schema Area"
+  UNIQUE
+  PRIMARY
+  INDEX-FIELD "in-id" ASCENDING 
+
+ADD INDEX "idx1" ON "reajuste-contrato-migracao-item" 
+  AREA "Schema Area"
+  INDEX-FIELD "in-modalidade-origem" ASCENDING 
+  INDEX-FIELD "in-termo-origem" ASCENDING 
+  INDEX-FIELD "in-usuario-origem" ASCENDING 
+
+ADD INDEX "idx2" ON "reajuste-contrato-migracao-item" 
+  AREA "Schema Area"
+  INDEX-FIELD "in-modalidade-destino" ASCENDING 
+  INDEX-FIELD "in-termo-destino" ASCENDING 
+  INDEX-FIELD "in-usuario-destino" ASCENDING 
+
+ADD INDEX "idx3" ON "reajuste-contrato-migracao-item" 
+  AREA "Schema Area"
+  INDEX-FIELD "in-fatura" ASCENDING 
+  INDEX-FIELD "dc-contratante" ASCENDING 
+  INDEX-FIELD "in-ano" ASCENDING 
+  INDEX-FIELD "in-mes" ASCENDING 
+
+ADD INDEX "idx4" ON "reajuste-contrato-migracao-item" 
+  AREA "Schema Area"
+  INDEX-FIELD "in-id-lote" ASCENDING 
+
+ADD TABLE "reajuste-contrato-migracao-lote"
+  AREA "Schema Area"
+  DUMP-NAME "reajuste-contrato-migracao-lote"
+
+ADD FIELD "in-id" OF "reajuste-contrato-migracao-lote" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 2
+  MAX-WIDTH 4
+  ORDER 10
+
+ADD FIELD "dt-ocorrencia" OF "reajuste-contrato-migracao-lote" AS datetime 
+  FORMAT "99/99/9999 HH:MM:SS.SSS"
+  INITIAL ?
+  POSITION 3
+  MAX-WIDTH 8
+  ORDER 20
+
+ADD FIELD "in-modalidade-origem" OF "reajuste-contrato-migracao-lote" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 4
+  MAX-WIDTH 4
+  ORDER 30
+
+ADD FIELD "in-modalidade-destino" OF "reajuste-contrato-migracao-lote" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 5
+  MAX-WIDTH 4
+  ORDER 40
+
+ADD FIELD "in-termo-origem" OF "reajuste-contrato-migracao-lote" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 6
+  MAX-WIDTH 4
+  ORDER 50
+
+ADD FIELD "in-termo-destino" OF "reajuste-contrato-migracao-lote" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 7
+  MAX-WIDTH 4
+  ORDER 60
+
+ADD FIELD "dc-total" OF "reajuste-contrato-migracao-lote" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 8
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 70
+
+ADD FIELD "dc-contratante" OF "reajuste-contrato-migracao-lote" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 9
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 80
+
+ADD FIELD "in-fatura" OF "reajuste-contrato-migracao-lote" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 10
+  MAX-WIDTH 4
+  ORDER 90
+
+ADD FIELD "dt-vencimento" OF "reajuste-contrato-migracao-lote" AS date 
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 11
+  MAX-WIDTH 4
+  ORDER 100
+
+ADD FIELD "dt-emissao" OF "reajuste-contrato-migracao-lote" AS date 
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 12
+  MAX-WIDTH 4
+  ORDER 110
+
+ADD FIELD "ch-tipo-fatura" OF "reajuste-contrato-migracao-lote" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 13
+  MAX-WIDTH 16
+  ORDER 120
+
+ADD INDEX "idxprimary" ON "reajuste-contrato-migracao-lote" 
+  AREA "Schema Area"
+  UNIQUE
+  PRIMARY
+  INDEX-FIELD "in-id" ASCENDING 
+
+ADD INDEX "idx1" ON "reajuste-contrato-migracao-lote" 
+  AREA "Schema Area"
+  INDEX-FIELD "in-modalidade-origem" ASCENDING 
+  INDEX-FIELD "in-termo-origem" ASCENDING 
+  INDEX-FIELD "dt-ocorrencia" ASCENDING 
+
+ADD INDEX "idx2" ON "reajuste-contrato-migracao-lote" 
+  AREA "Schema Area"
+  INDEX-FIELD "in-modalidade-destino" ASCENDING 
+  INDEX-FIELD "in-termo-destino" ASCENDING 
+  INDEX-FIELD "dt-ocorrencia" ASCENDING 
+
+ADD INDEX "idx3" ON "reajuste-contrato-migracao-lote" 
+  AREA "Schema Area"
+  INDEX-FIELD "dc-contratante" ASCENDING 
+  INDEX-FIELD "in-fatura" ASCENDING 
+
+ADD SEQUENCE "seq-reajuste-contrato-migracao-i"
+  INITIAL 0
+  INCREMENT 1
+  CYCLE-ON-LIMIT no
+
+ADD SEQUENCE "seq-reajuste-contrato-migracao-l"
+  INITIAL 0
+  INCREMENT 1
+  CYCLE-ON-LIMIT no
+
+.
+PSC
+cpstream=ISO8859-1
+.
+0000007015

@@ -75,7 +75,7 @@ define new global shared variable v_cod_usuar_corren as character
 &Scoped-define INTERNAL-TABLES temp-contrato
 
 /* Definitions for BROWSE browseDados                                   */
-&Scoped-define FIELDS-IN-QUERY-browseDados temp-contrato.lg-marcado temp-contrato.in-modalidade temp-contrato.in-termo temp-contrato.in-proposta temp-contrato.ch-ultimo-reajuste temp-contrato.dc-percentual-ultimo-reajuste temp-contrato.ch-ultimo-faturamento temp-contrato.dc-contratante temp-contrato.dc-contratante-origem temp-contrato.ch-contratante temp-contrato.ch-contratante-origem temp-contrato.in-quantidade-parcelas temp-contrato.lg-possui-reajuste-ano-ref temp-contrato.lg-eventos-gerados temp-contrato.ch-usuario-evento temp-contrato.dt-geracao-evento   
+&Scoped-define FIELDS-IN-QUERY-browseDados temp-contrato.lg-marcado temp-contrato.in-modalidade temp-contrato.in-termo temp-contrato.in-proposta temp-contrato.ch-ultimo-reajuste temp-contrato.dc-percentual-ultimo-reajuste temp-contrato.ch-ultimo-faturamento temp-contrato.dc-contratante temp-contrato.dc-contratante-origem temp-contrato.ch-contratante temp-contrato.ch-contratante-origem temp-contrato.in-quantidade-parcelas temp-contrato.in-quantidade-parcelas-usuario temp-contrato.lg-possui-reajuste-ano-ref temp-contrato.lg-eventos-gerados temp-contrato.ch-usuario-evento temp-contrato.dt-geracao-evento   
 &Scoped-define ENABLED-FIELDS-IN-QUERY-browseDados temp-contrato.lg-marcado   
 &Scoped-define ENABLED-TABLES-IN-QUERY-browseDados temp-contrato
 &Scoped-define FIRST-ENABLED-TABLE-IN-QUERY-browseDados temp-contrato
@@ -148,6 +148,11 @@ define button buttonParametros
      image-up file "thealth/assets/process2_24_24.jpg":U no-focus flat-button
      label "" 
      size 7.2 by 1.71 tooltip "Parâmetros".
+
+define button buttonTrocarContrato 
+     image-up file "thealth/assets/transfer_24_24.jpg":U no-focus flat-button
+     label "" 
+     size 7.2 by 1.71 tooltip "Trocar contrato".
 
 define variable radioEdicaoBrowse as integer 
      view-as radio-set horizontal
@@ -282,16 +287,17 @@ define browse browseDados
       temp-contrato.lg-marcado                  column-label '  ' view-as toggle-box 
       temp-contrato.in-modalidade                     
     temp-contrato.in-termo                          
-    temp-contrato.in-proposta                       
+    temp-contrato.in-proposta                        
     temp-contrato.ch-ultimo-reajuste           
-         
+          
     temp-contrato.dc-percentual-ultimo-reajuste     
     temp-contrato.ch-ultimo-faturamento             
     temp-contrato.dc-contratante                    
     temp-contrato.dc-contratante-origem             
     temp-contrato.ch-contratante                     
     temp-contrato.ch-contratante-origem
-    temp-contrato.in-quantidade-parcelas                     
+    temp-contrato.in-quantidade-parcelas
+    temp-contrato.in-quantidade-parcelas-usuario                     
     temp-contrato.lg-possui-reajuste-ano-ref    view-as toggle-box
     temp-contrato.lg-eventos-gerados            view-as toggle-box
     temp-contrato.ch-usuario-evento             
@@ -300,7 +306,7 @@ define browse browseDados
         temp-contrato.lg-marcado
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
-    WITH NO-ROW-MARKERS SEPARATORS SIZE 131 BY 13.05
+    WITH NO-ROW-MARKERS SEPARATORS SIZE 131 BY 13.57
          FONT 1 FIT-LAST-COLUMN.
 
 
@@ -310,14 +316,14 @@ define frame frameDefault
     with 1 down no-box keep-tab-order overlay 
          side-labels no-underline three-d 
          at col 1 row 1
-         size 140.6 by 23.24
+         size 140.6 by 23.91
          bgcolor 15 font 1 widget-id 100.
 
 define frame frameRodape
-     buttonSair at row 1.24 col 124 widget-id 2
+     buttonSair at row 1.24 col 124.8 widget-id 2
     with 1 down no-box keep-tab-order overlay 
          side-labels no-underline three-d 
-         at col 2 row 22.48
+         at col 2 row 23.14
          size 139 by 1.67
          bgcolor 15 font 1 widget-id 400.
 
@@ -348,23 +354,24 @@ define frame frameSuperior
          bgcolor 15 font 1 widget-id 200.
 
 define frame frameCorpo
-     buttonEditarParcelas at row 5.48 col 132.2 widget-id 58
      checkOcultarSemReajuste at row 1.05 col 55 widget-id 50
+     buttonTrocarContrato at row 8.81 col 132.2 widget-id 60
      radioEdicaoBrowse at row 1.14 col 101.6 no-label widget-id 12
-     buttonAgendarEventos at row 7.14 col 132.2 widget-id 32
      browseDados at row 2.19 col 1 widget-id 500
      checkMarcarTodos at row 2.24 col 1.6 widget-id 34
+     buttonEditarParcelas at row 5.48 col 132.2 widget-id 58
+     buttonAgendarEventos at row 7.14 col 132.2 widget-id 32
      buttonDetalhar at row 3.81 col 132.2 widget-id 30
-     buttonElimininarEventos at row 10.48 col 132.2 widget-id 52
-     buttonExpotar at row 8.81 col 132.2 widget-id 36
-     buttonHistorico at row 12.14 col 132.2 widget-id 54
+     buttonElimininarEventos at row 12.14 col 132.2 widget-id 52
+     buttonExpotar at row 10.48 col 132.2 widget-id 36
+     buttonHistorico at row 13.81 col 132.2 widget-id 54
      buttonParametros at row 2.14 col 132.2 widget-id 28
      buttonBrowseLimpar at row 1 col 133.2 widget-id 24
      buttonConfigBrowse at row 1 col 136 widget-id 26
     with 1 down keep-tab-order overlay 
          side-labels no-underline three-d 
          at col 2 row 7.19
-         size 139 by 15.24
+         size 139 by 15.76
          bgcolor 15 font 1
          title "" widget-id 300.
 
@@ -386,7 +393,7 @@ if session:display-type = "GUI":U then
   create window winMain assign
          hidden             = yes
          title              = "<insert window title>"
-         height             = 23.24
+         height             = 23.91
          width              = 140.6
          max-height         = 27.57
          max-width          = 169.6
@@ -419,12 +426,15 @@ assign frame frameCorpo:FRAME = frame frameDefault:HANDLE
 
 /* SETTINGS FOR FRAME frameCorpo
                                                                         */
-/* BROWSE-TAB browseDados buttonAgendarEventos frameCorpo */
+/* BROWSE-TAB browseDados radioEdicaoBrowse frameCorpo */
 assign 
        browseDados:ALLOW-COLUMN-SEARCHING in frame frameCorpo = true.
 
 assign 
        buttonEditarParcelas:HIDDEN in frame frameCorpo           = true.
+
+assign 
+       buttonTrocarContrato:HIDDEN in frame frameCorpo           = true.
 
 /* SETTINGS FOR FRAME frameDefault
    FRAME-NAME                                                           */
@@ -661,6 +671,17 @@ end.
 
 
 &Scoped-define FRAME-NAME frameCorpo
+&Scoped-define SELF-NAME buttonTrocarContrato
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonTrocarContrato winMain
+on choose of buttonTrocarContrato in frame frameCorpo
+do:
+    run acaoTrocarContrato.  
+end.
+
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
 &Scoped-define SELF-NAME checkMarcarTodos
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL checkMarcarTodos winMain
 on value-changed of checkMarcarTodos in frame frameCorpo
@@ -740,11 +761,40 @@ procedure acaoAlterarParcelas private :
  Notes:
 ------------------------------------------------------------------------------*/
     define variable in-parcelas             as   integer    no-undo.
+    define variable in-contratos            as   integer    no-undo.
+    define variable lg-confirmar            as   logical    no-undo.
+    
+
+    for each temp-contrato
+       where temp-contrato.lg-marcado:
+           
+        assign in-contratos = in-contratos + 1.           
+    end. 
+    
+    if in-contratos = 0
+    then do:
+        
+        message 'Marque ao menos um contrato para alterar a quantidade de parcelas'
+        view-as alert-box.
+        return.
+    end.
+    
+    if in-contratos > 0
+    then do:
+        
+        message substitute ("Confirmar alterar &1 contrato&2?", in-contratos, if in-contratos = 1 then '' else 's') view-as alert-box button yes-no update lg-confirmar.
+        
+        if not lg-confirmar
+        then do:
+            return.            
+        end. 
+    end.
 
     do on error undo, return:
         
-        if not available temp-contrato
-        then return.
+        find first temp-contrato
+             where temp-contrato.lg-marcado = yes
+                   .
         
         assign in-parcelas  = temp-contrato.in-quantidade-parcelas.
         
@@ -756,23 +806,32 @@ procedure acaoAlterarParcelas private :
         
         run thealth/reajuste-planos-saude/interface/reajuste-plano-editar.w (input-output in-parcelas).
         
-        assign temp-contrato.in-quantidade-parcelas-usuario = in-parcelas.      
-
-        run buscarFaturamentoContrato in hd-api (input              temp-contrato.in-modalidade,
-                                                 input              temp-contrato.in-termo,
-                                                 input              integer (substring (textPeriodoReajuste:screen-value in frame frameSuperior, 4, 4)),
-                                                 input              integer (substring (textPeriodoReajuste:screen-value, 1, 2)),
-                                                 input              integer (substring (textPeriodoFat:screen-value, 4, 4)),
-                                                 input              integer (substring (textPeriodoFat:screen-value, 1, 2)),
-                                                 input-output table temp-contrato by-reference,
-                                                 input-output table temp-valor-beneficiario by-reference,
-                                                 input-output table temp-valor-beneficiario-mes by-reference,
-                                                 input-output table temp-valor-faturado-mes by-reference).
+        for each temp-contrato
+           where temp-contrato.lg-marcado:
+               
+            assign temp-contrato.in-quantidade-parcelas-usuario = in-parcelas.
+                  
+            run buscarFaturamentoContrato in hd-api (input              temp-contrato.in-modalidade,
+                                                     input              temp-contrato.in-termo,
+                                                     input              integer (substring (textPeriodoReajuste:screen-value in frame frameSuperior, 4, 4)),
+                                                     input              integer (substring (textPeriodoReajuste:screen-value, 1, 2)),
+                                                     input              integer (substring (textPeriodoFat:screen-value, 4, 4)),
+                                                     input              integer (substring (textPeriodoFat:screen-value, 1, 2)),
+                                                     input-output table temp-contrato by-reference,
+                                                     input-output table temp-valor-beneficiario by-reference,
+                                                     input-output table temp-valor-beneficiario-mes by-reference,
+                                                     input-output table temp-valor-faturado-mes by-reference).
+        end.
+        
+        message substitute ('Atualizado a quantidade de parcelas de &1 contrato&2',
+                            in-contratos,
+                            if in-contratos = 1 then '' else 's')
+        view-as alert-box. 
                                                  
         browse browseDados:refresh().                                                 
 
     end.
-
+ 
 end procedure.
 
 /* _UIB-CODE-BLOCK-END */
@@ -1335,6 +1394,43 @@ end procedure.
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
 
+
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE acaoTrocarContrato winMain
+procedure acaoTrocarContrato:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    
+    do on error undo, return:
+            
+        run thealth/reajuste-planos-saude/interface/reajuste-plano-selecionar-contrato.w.
+        
+        
+        catch cs-erro as Progress.Lang.Error : 
+            
+            if cs-erro:GetMessageNum(1) = 1
+            then do:
+                
+                message substitute ("Ops...~nOcorreu um erro ao consultar os contratos.~n&1",
+                                    cs-erro:GetMessage(1))
+                view-as alert-box error buttons ok.
+            end.
+            else do:
+            
+                message substitute ("Ops...~nOcorreu um erro ao consultar os contratos.~nInforme a TI com um print desta mensagem.~n&1",
+                                    cs-erro:GetMessage(1))
+                view-as alert-box error buttons ok.
+            end.    
+        end catch.
+    end.
+end procedure.
+    
+/* _UIB-CODE-BLOCK-END */
+&ANALYZE-RESUME
+
+
+
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE disable_UI winMain  _DEFAULT-DISABLE
 procedure disable_UI :
 /*------------------------------------------------------------------------------
@@ -1382,10 +1478,10 @@ procedure enable_UI :
   {&OPEN-BROWSERS-IN-QUERY-frameSuperior}
   display checkOcultarSemReajuste radioEdicaoBrowse checkMarcarTodos 
       with frame frameCorpo in window winMain.
-  enable buttonEditarParcelas checkOcultarSemReajuste radioEdicaoBrowse 
-         buttonAgendarEventos browseDados checkMarcarTodos buttonDetalhar 
-         buttonElimininarEventos buttonExpotar buttonHistorico buttonParametros 
-         buttonBrowseLimpar buttonConfigBrowse 
+  enable checkOcultarSemReajuste buttonTrocarContrato radioEdicaoBrowse 
+         browseDados checkMarcarTodos buttonEditarParcelas buttonAgendarEventos 
+         buttonDetalhar buttonElimininarEventos buttonExpotar buttonHistorico 
+         buttonParametros buttonBrowseLimpar buttonConfigBrowse 
       with frame frameCorpo in window winMain.
   {&OPEN-BROWSERS-IN-QUERY-frameCorpo}
   enable buttonSair 
@@ -1442,9 +1538,8 @@ end procedure.
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
 
-
-&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE eventoExportar winMain
-procedure eventoExportar:
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE eventoExportar winMain 
+procedure eventoExportar :
 /*------------------------------------------------------------------------------
  Purpose:
  Notes:
@@ -1454,11 +1549,9 @@ procedure eventoExportar:
     run mostrarMensagem in hd-status (input  substitute ('Exportando linha &1', in-linha)) no-error.
 
 end procedure.
-    
+
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
-
-
 
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _PROCEDURE initializarInterface winMain 
 procedure initializarInterface private :

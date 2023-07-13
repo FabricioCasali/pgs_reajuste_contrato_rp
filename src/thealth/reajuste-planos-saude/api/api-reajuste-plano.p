@@ -16,25 +16,51 @@
 
 block-level on error undo, throw.
 
-using Progress.Lang.AppError from propath.
-using Progress.Json.ObjectModel.JsonObject from propath.
 using Progress.Json.ObjectModel.JsonArray from propath.
+using Progress.Json.ObjectModel.JsonObject from propath.
 using Progress.Json.ObjectModel.ObjectModelParser from propath.
+using Progress.Lang.AppError from propath.
 
 /* ********************  Preprocessor Definitions  ******************** */
 
 /* ************************  Function Prototypes ********************** */
 
 
+function buscarDataVencimento returns date private
+    (ch-empresa         as   character,
+     ch-estabelecimento as   character,
+     in-tipo-vencimento as   integer,
+     in-vencimento      as   integer,
+     in-ano             as   integer,
+     in-mes             as   integer) forward.
+
+function buscarNumeroFatura returns integer private
+    (in-modalidade          as   integer,
+     dc-contratante         as   decimal) forward.
+
+function buscarSequenciaNota returns integer 
+    (in-modalidade          as   integer,
+     in-termo               as   integer,
+     dc-contratante         as   decimal,
+     dc-contratante-origem  as   decimal,
+     in-ano                 as   integer,
+     in-mes                 as   integer) forward.
+
 function numeroParcelas returns integer private
     (in-modalidade  as   integer,
      in-termo       as   integer) forward.
+
+function removerSequenciaNota returns logical private
+    (dc-contratante         as   decimal,
+     in-ano                 as   integer,
+     in-mes                 as   integer) forward.
 
 {thealth/reajuste-planos-saude/api/api-reajuste-plano.i}
 {thealth/reajuste-planos-saude/api/simular-faturamento.i}
 {thealth/reajuste-planos-saude/interface/reajuste-plano.i}
 {thealth/reajuste-planos-saude/utils/reajuste-plano-dominios.i}
 {thealth/libs/dates.i}
+{thealth/libs/pdf-tools.i}
  
 define variable hd-api-config               as   handle     no-undo.
 define variable lg-cancelar-pesquisa        as   logical    no-undo.
@@ -47,6 +73,75 @@ define new global shared variable v_cod_usuar_corren as character
 
 
 /* **********************  Internal Procedures  *********************** */
+
+
+
+procedure buscarContaContabeis private:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input  parameter in-modalidade   as   integer    no-undo.
+    define input  parameter in-plano        as   integer    no-undo.
+    define input  parameter in-tipo-plano   as   integer    no-undo.
+    define input  parameter in-forma-pagto  as   integer    no-undo.
+    define input  parameter in-evento       as   integer    no-undo.
+    define input  parameter in-modulo       as   integer    no-undo.
+    define input  parameter in-tipo-contra  as   integer    no-undo.
+    define input  parameter dt-emissao      as   date       no-undo.
+    define input  parameter ch-tipo-movto   as   character  no-undo.
+    define input  parameter rw-movimento    as   rowid      no-undo.
+    define output parameter ch-conta        as   character  no-undo.
+    define output parameter ch-centro-custo as   character  no-undo.
+    
+    define variable lg-ct-contabil-aux      as   logical    no-undo.
+    define variable ct-codigo-aux           as   character  no-undo.
+    define variable sc-codigo-aux           as   character  no-undo.
+    define variable ct-codigo-dif-aux       as   character  no-undo.
+    define variable sc-codigo-dif-aux       as   character  no-undo.
+    define variable ct-codigo-dif-neg-aux   as   character  no-undo.
+    define variable sc-codigo-dif-neg-aux   as   character  no-undo.
+    define variable ct-codigo-glosa-aux     as   character  no-undo.
+    define variable sc-codigo-glosa-aux     as   character  no-undo.
+    define variable lg-evencontde-aux       as   logical    no-undo.
+    
+    run rtp/rtct-contabeis.p (input  in-modalidade,
+                              input  in-plano,
+                              input  in-tipo-plano,
+                              input  in-forma-pagto,
+                              input  "FT",
+                              input  in-evento,
+                              input  in-modulo,
+                              input  year (dt-emissao),
+                              input  month (dt-emissao),
+                              input  if rw-movimento <> ? then 1 else 0,
+                              input  ch-tipo-movto,
+                              input  rw-movimento,
+                              input  in-tipo-contra,
+                              input  0,
+                              output lg-ct-contabil-aux,
+                              output ct-codigo-aux,
+                              output sc-codigo-aux,
+                              output ct-codigo-dif-aux,
+                              output sc-codigo-dif-aux,
+                              output ct-codigo-dif-neg-aux,
+                              output sc-codigo-dif-neg-aux,
+                              output ct-codigo-glosa-aux,
+                              output sc-codigo-glosa-aux,
+                              output lg-evencontde-aux).
+    
+    if not lg-ct-contabil-aux
+    then do:
+        
+        undo, throw new AppError ("nao encontrada conta contabil para os parametros de entrada na rtct-contabil", 1).
+    end.
+    
+    assign ch-conta         = ct-codigo-aux   
+           ch-centro-custo  = sc-codigo-aux
+           .
+    
+
+end procedure.
 
 procedure buscarContratos:
 /*------------------------------------------------------------------------------
@@ -134,10 +229,8 @@ procedure buscarContratos:
        first ter-ade no-lock                    ~n
           of propost                            ~n
        where (    ter-ade.dt-inicio    <= &7    ~n
-              and propost.cd-convenio  <> 91    ~n
-              and propost.cd-convenio  <> 92)   ~n
-          or (   propost.cd-convenio    = 91    ~n
-              or propost.cd-convenio    = 92),  ~n
+              and propost.cd-convenio   = 1)    ~n
+          or (   propost.cd-convenio   <> 1),   ~n
        first contrat no-lock                    ~n
        where contrat.cd-contratante     = propost.cd-contratante",
                                               in-contratante-ini,
@@ -675,7 +768,6 @@ procedure buscarFaturamentoContrato:
 end procedure.
 
 
-
 procedure buscarHistoricoContrato:
 /*------------------------------------------------------------------------------
  Purpose:
@@ -714,7 +806,7 @@ procedure buscarHistoricoContrato:
                    
                    .
         end.                   
-    end.             
+    end.           
 
 end procedure.
 
@@ -763,7 +855,7 @@ procedure criarEventoProgramado private:
                    event-progdo-bnfciar.cd-evento               = in-evento 
                    event-progdo-bnfciar.cd-moeda                = 0
                    event-progdo-bnfciar.qt-evento               = 1
-                   event-progdo-bnfciar.cod-livre-1             = ch-mensagem
+                   event-progdo-bnfciar.cod-livre-1             = ch-mensagem                   
                    .                    
         end.
         
@@ -783,6 +875,649 @@ procedure criarEventoProgramado private:
     end.
 end procedure.
 
+
+procedure criarNota private:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input  parameter in-modalidade           as   integer    no-undo.
+    define input  parameter in-termo                as   integer    no-undo.
+    define input  parameter in-ano                  as   integer    no-undo.
+    define input  parameter in-mes                  as   integer    no-undo.
+    
+    define variable in-total-eventos                as   integer    no-undo.    
+    define variable dc-valor-total                  as   decimal    no-undo.
+    
+    define variable dt-vencimento                   as   date       no-undo.
+    define variable in-numero-fatura                as   integer    no-undo.
+    define variable in-sequencia-nota               as   integer    no-undo.
+    
+    define variable ch-especie                      as   character  no-undo.
+
+    define variable ch-conta                        as   character  no-undo.    
+    define variable ch-centro                       as   character  no-undo.
+    
+    define variable dc-contratante                  as   decimal    no-undo.
+    define variable dc-contratante-origem           as   decimal    no-undo.
+    define variable in-insc-contratante             as   integer    no-undo.
+    define variable in-insc-contratante-origem      as   integer    no-undo.
+    
+    define variable in-portador                     as   integer    no-undo.
+    define variable in-modalidade-cob               as   integer    no-undo. 
+        
+    if not available parafatu then find first parafatu no-lock.    
+    if not available paramecp then find first paramecp no-lock.
+
+    for first propost no-lock
+        where propost.cd-modalidade = in-modalidade
+          and propost.nr-ter-adesao = in-termo,
+        first ter-ade no-lock
+           of propost.
+    end.
+    
+    if ter-ade.in-contratante-mensalidade = 0
+    then do:
+        
+        for first contrat no-lock
+            where contrat.cd-contratante    = propost.cd-contratante.
+        end.
+        
+        assign dc-contratante       = contrat.cd-contratante
+               in-insc-contratante  = contrat.nr-insc-contratante
+               in-portador          = contrat.portador
+               in-modalidade-cob    = contrat.modalidade
+               .
+               
+        if propost.cd-contrat-origem   <> 0
+        then do:
+            
+            for first contrat no-lock
+                where contrat.cd-contratante    = propost.cd-contrat-origem.
+            end.
+            
+            assign dc-contratante-origem        = contrat.cd-contratante
+                   in-insc-contratante-origem   = contrat.nr-insc-contratante
+                   .            
+        end.
+    end.
+    else do:
+        
+        for first contrat no-lock
+            where contrat.cd-contratante    = propost.cd-contrat-origem.
+        end.
+        assign dc-contratante       = contrat.cd-contratante
+               in-insc-contratante  = contrat.nr-insc-contratante
+               in-portador          = contrat.portador
+               in-modalidade-cob    = contrat.modalidade
+               .
+               
+        if propost.cd-contrat-origem   <> 0
+        then do:
+            
+            for first contrat no-lock
+                where contrat.cd-contratante    = propost.cd-contratante.
+            end.
+            
+            assign dc-contratante-origem        = contrat.cd-contratante
+                   in-insc-contratante-origem   = contrat.nr-insc-contratante
+                   .            
+        end.
+    end.
+    
+    find first estrsitu no-lock 
+         where estrsitu.in-entidade     = "FT"
+           and estrsitu.cd-estrutura    = parafatu.cd-estrutura.
+
+    log-manager:write-message (substitute ("thealth -> contratante: &1, origem: &2", dc-contratante, dc-contratante-origem), "DEBUG") no-error.
+    
+    log-manager:write-message (substitute ("thealth -> bucando data de vencimento"), "DEBUG") no-error.
+    assign dt-vencimento    = buscarDataVencimento (paramecp.ep-codigo, 
+                                                    propost.cod-estabel, 
+                                                    propost.cd-tipo-vencimento, 
+                                                    propost.dd-vencimento, 
+                                                    in-ano, 
+                                                    in-mes).
+    log-manager:write-message (substitute ("thealth -> data de vencimento: &1", dt-vencimento), "DEBUG") no-error.                                                    
+                                                    
+    log-manager:write-message (substitute ("thealth -> buscando numero da fatura"), "DEBUG") no-error.                                                    
+    assign in-numero-fatura = buscarNumeroFatura (in-modalidade, dc-contratante).
+    log-manager:write-message (substitute ("thealth -> numero da fatura: &1", in-numero-fatura), "DEBUG") no-error.
+    
+    log-manager:write-message (substitute ("thealth -> buscando sequencia nota"), "DEBUG") no-error.    
+    assign in-sequencia-nota    = buscarSequenciaNota (in-modalidade, 
+                                                       in-termo, 
+                                                       dc-contratante, 
+                                                       dc-contratante-origem, 
+                                                       in-ano, 
+                                                       in-mes).
+    log-manager:write-message (substitute ("thealth -> sequencia da nota: &1", in-sequencia-nota), "DEBUG") no-error.
+    
+    if not available parafatu then find first parafatu no-lock.                                                       
+                                                       
+    assign ch-especie   = parafatu.char-24.            
+    
+    
+    
+    
+    
+    
+    
+    publish EV_API_REAJUSTE_PLANO_MIGRAR_VALORES (input  substitute ("Criando fatura")).
+    
+    
+    
+                                                      
+          
+    /** cria nota de serviáo */
+    log-manager:write-message (substitute ("thealth -> criando notaserv: &1|&2|&3|&4|&5|&6|&7",
+                                           in-modalidade,
+                                           dc-contratante,
+                                           dc-contratante-origem,
+                                           in-termo,
+                                           in-ano,
+                                           in-mes,
+                                           in-sequencia-nota), "DEBUG") no-error.
+    create notaserv.
+    assign notaserv.cd-modalidade         = in-modalidade
+           notaserv.cd-contratante        = dc-contratante
+           notaserv.cd-contratante-origem = dc-contratante-origem
+           notaserv.nr-ter-adesao         = in-termo
+           notaserv.cd-especie            = ch-especie
+           notaserv.aa-referencia         = in-ano
+           notaserv.mm-referencia         = in-mes
+           notaserv.nr-sequencia          = in-sequencia-nota
+           notaserv.ep-codigo             = parafatu.ep-codigo
+           notaserv.cod-estabel           = parafatu.cod-estabel
+           notaserv.dt-emissao            = today
+           notaserv.dt-vencimento         = dt-vencimento
+           notaserv.mo-codigo             = 0
+           notaserv.vl-total              = 0
+           notaserv.nr-fatura             = in-numero-fatura
+           notaserv.lg-contabilizada      = no
+           notaserv.cd-userid             = v_cod_usuar_corren
+           notaserv.dt-atualizacao        = today
+           notaserv.date-1                = today.
+          
+
+    log-manager:write-message (substitute ("thealth -> criando fatura: &1|&2", dc-contratante, in-numero-fatura), "DEBUG") no-error.
+      /** cria fatura e vincula a nota de servico */
+    create fatura.
+    assign fatura.cd-contratante            = dc-contratante
+           fatura.nr-fatura                 = in-numero-fatura
+           fatura.aa-referencia             = in-ano
+           fatura.mm-referencia             = in-mes
+           fatura.ep-codigo                 = parafatu.ep-codigo
+           fatura.cod-estabel               = parafatu.cod-estabel
+           fatura.cd-modalidade             = in-modalidade
+           fatura.cd-especie                = ch-especie
+           fatura.ds-mensagem               = 'Fatura gerada automaticamente pela rotina de migraá∆o de valores de reajuste entre contratos'
+           fatura.portador                  = in-portador
+           fatura.modalidade                = in-modalidade-cob
+           fatura.ct-codigo                 = parafatu.ct-codigo
+           fatura.sc-codigo                 = parafatu.sc-codigo
+           fatura.nr-titulo-acr             = ""
+           fatura.parcela                   = 0
+           fatura.dt-emissao                = today
+           fatura.dt-vencimento             = dt-vencimento
+           fatura.cd-tipo-vencimento        = 0
+           fatura.cd-sit-fatu               = estrsitu.cd-sit-inicial
+           fatura.mo-codigo                 = 0
+           fatura.in-tipo-fatura            = 3
+           fatura.cd-userid                 = v_cod_usuar_corren
+           fatura.dt-atualizacao            = today
+           fatura.date-3                    = today
+           fatura.nr-ter-adesao-estatistica = 0
+           fatura.dec-1                     = 0
+           fatura.dec-2                     = 0
+           fatura.log-1                     = no
+           fatura.int-4                     = 0
+           fatura.int-10                    = 0
+           .
+           
+    for each temp-assoc-usuario
+       where temp-assoc-usuario.in-usuario-destino <> 0,
+       first evenfatu no-lock
+       where evenfatu.in-entidade                   = "FT"
+         and evenfatu.cd-evento                     = temp-assoc-usuario.in-evento  
+    break by temp-assoc-usuario.in-evento:
+
+        if first-of (temp-assoc-usuario.in-evento)
+        then do:
+            
+            assign dc-valor-total   = 0
+                   in-total-eventos = 0
+                   .
+        end.
+                
+        log-manager:write-message (substitute ("thealth -> criando vlbenef para benef &1", temp-assoc-usuario.in-usuario-destino), "DEBUG") no-error.    
+        find first temp-evento-conta
+             where temp-evento-conta.in-evento  = temp-assoc-usuario.in-evento
+                   no-error.
+                   
+        if not available temp-evento-conta
+        then do:
+            
+            run buscarContaContabeis (input  propost.cd-modalidade, 
+                                      input  propost.cd-plano, 
+                                      input  propost.cd-tipo-plano, 
+                                      input  propost.cd-forma-pagto, 
+                                      input  temp-assoc-usuario.in-evento, 
+                                      input  0, 
+                                      input  propost.in-tipo-contratacao, 
+                                      input  today, 
+                                      input  "", 
+                                      input  ?, 
+                                      output ch-conta, 
+                                      output ch-centro).
+                                      
+            create temp-evento-conta.
+            assign temp-evento-conta.ch-centro  = ch-centro
+                   temp-evento-conta.ch-conta   = ch-conta
+                   temp-evento-conta.in-evento  = temp-assoc-usuario.in-evento
+                   .
+        end.        
+        
+        publish EV_API_REAJUSTE_PLANO_MIGRAR_VALORES (input  substitute ("&1/&2 - Registrando valor para o benefici†rio &3 - &4 - R$ &5",
+                                                                         in-modalidade,
+                                                                         in-termo,
+                                                                         temp-assoc-usuario.in-usuario-destino,
+                                                                         temp-assoc-usuario.ch-nome,
+                                                                         string (temp-assoc-usuario.dc-valor-evento, ">>>>>9.99"))).        
+
+        create vlbenef.
+        assign vlbenef.cd-modalidade            = notaserv.cd-modalidade               
+               vlbenef.cd-contratante           = notaserv.cd-contratante       
+               vlbenef.cd-contratante-origem    = notaserv.cd-contratante-origem
+               vlbenef.nr-ter-adesao            = notaserv.nr-ter-adesao         
+               vlbenef.aa-referencia            = notaserv.aa-referencia                  
+               vlbenef.mm-referencia            = notaserv.mm-referencia                  
+               vlbenef.nr-sequencia             = notaserv.nr-sequencia                   
+               vlbenef.cd-usuario               = temp-assoc-usuario.in-usuario-destino           
+               vlbenef.cd-evento                = temp-assoc-usuario.in-evento 
+               vlbenef.cd-modulo                = 0
+               vlbenef.nr-faixa-etaria          = temp-assoc-usuario.in-faixa-etaria
+               vlbenef.cd-grau-parentesco       = temp-assoc-usuario.in-grau-parentesco
+               vlbenef.char-1                   = ''
+               vlbenef.cd-userid                = v_cod_usuar_corren
+               vlbenef.dt-atualizacao           = today
+               vlbenef.vl-usuario               = temp-assoc-usuario.dc-valor-evento
+               vlbenef.vl-total                 = temp-assoc-usuario.dc-valor-evento
+               dc-valor-total                   = dc-valor-total + temp-assoc-usuario.dc-valor-evento
+               in-total-eventos                 = in-total-eventos + temp-assoc-usuario.in-quantidade-evento
+               .
+               
+        if last-of (temp-assoc-usuario.in-evento)
+        then do:
+            
+            log-manager:write-message (substitute ("thealth -> criando fatueven"), "DEBUG") no-error.
+            create fatueven.
+            assign fatueven.cd-modalidade           = notaserv.cd-modalidade
+                   fatueven.cd-contratante          = notaserv.cd-contratante
+                   fatueven.cd-contratante-origem   = notaserv.cd-contratante-origem
+                   fatueven.nr-ter-adesao           = notaserv.nr-ter-adesao
+                   fatueven.aa-referencia           = notaserv.aa-referencia
+                   fatueven.mm-referencia           = notaserv.mm-referencia
+                   fatueven.nr-sequencia            = notaserv.nr-sequencia
+                   fatueven.cd-evento               = temp-assoc-usuario.in-evento
+                   fatueven.cd-tipo-cob             = 0
+                   fatueven.lg-cred-deb             = yes
+                   fatueven.lg-destacado            = evenfatu.lg-destacado
+                   fatueven.lg-modulo               = no
+                   fatueven.ct-codigo               = temp-evento-conta.ch-conta
+                   fatueven.sc-codigo               = temp-evento-conta.ch-centro
+                   fatueven.qt-evento-ref           = 0
+                   fatueven.vl-evento-ref           = 0
+                   fatueven.cd-userid               = v_cod_usuar_corren
+                   fatueven.qt-evento               = in-total-eventos 
+                   fatueven.vl-evento               = dc-valor-total
+                   fatueven.cd-userid               = v_cod_usuar_corren
+                   fatueven.dt-atualizacao          = today
+                   .
+        end.               
+    end.
+    
+    assign notaserv.vl-total    = dc-valor-total
+           fatura.vl-total      = dc-valor-total
+           .
+    
+    for each temp-assoc-usuario
+       where temp-assoc-usuario.in-usuario-destino <> 0
+    break by temp-assoc-usuario.in-grau-parentesco
+          by temp-assoc-usuario.in-faixa-etaria:
+              
+        if first-of (temp-assoc-usuario.in-grau-parentesco)
+        or first-of (temp-assoc-usuario.in-faixa-etaria)
+        then do:
+            
+            find first temp-evento-conta
+                 where temp-evento-conta.in-evento  = temp-assoc-usuario.in-evento
+                       no-error.
+                                   
+            create fatgrmod.
+            assign fatgrmod.cd-modalidade           = in-modalidade
+                   fatgrmod.nr-ter-adesao           = in-termo
+                   fatgrmod.aa-referencia           = in-ano
+                   fatgrmod.mm-referencia           = in-mes
+                   fatgrmod.nr-sequencia            = in-sequencia-nota
+                   fatgrmod.cd-evento               = temp-assoc-usuario.in-evento
+                   fatgrmod.cd-grau-parentesco      = temp-assoc-usuario.in-grau-parentesco
+                   fatgrmod.ct-codigo               = temp-evento-conta.ch-conta
+                   fatgrmod.sc-codigo               = temp-evento-conta.ch-centro
+                   fatgrmod.nr-faixa-etaria         = temp-assoc-usuario.in-faixa-etaria
+                   fatgrmod.cd-modulo               = 0
+                   fatgrmod.ch-evento-grau-modulo   = string (temp-assoc-usuario.in-evento, "999") +
+                                                      string (temp-assoc-usuario.in-grau-parentesco, "99") +
+                                                      string (temp-assoc-usuario.in-faixa-etaria, "99") +
+                                                      string (0, "999")
+                   fatgrmod.cd-userid               = v_cod_usuar_corren
+                   fatgrmod.dt-atualizacao          = today
+                   fatgrmod.cd-contratante          = dc-contratante
+                   fatgrmod.cd-contratante-origem   = in-insc-contratante-origem                   
+                   .
+        end.
+        
+        assign fatgrmod.qt-evento   = fatgrmod.qt-evento + temp-assoc-usuario.in-quantidade-evento
+               fatgrmod.vl-evento   = fatgrmod.vl-evento + temp-assoc-usuario.dc-valor-evento
+               .        
+    end. 
+    
+    if not available temp-assoc-usuario
+    then find first temp-assoc-usuario.
+    
+    create reajuste-contrato-migracao-lote.
+    assign reajuste-contrato-migracao-lote.in-id                    = next-value (seq-reajuste-contrato-migracao-l)
+           reajuste-contrato-migracao-lote.in-modalidade-destino    = in-modalidade
+           reajuste-contrato-migracao-lote.in-termo-destino         = in-termo
+           reajuste-contrato-migracao-lote.dt-ocorrencia            = now
+           reajuste-contrato-migracao-lote.ch-tipo-fatura           = TIPO_FATURA_NORMAL
+           reajuste-contrato-migracao-lote.dt-emissao               = fatura.dt-emissao
+           reajuste-contrato-migracao-lote.dt-vencimento            = fatura.dt-vencimento
+           reajuste-contrato-migracao-lote.dc-contratante           = fatura.cd-contratante
+           reajuste-contrato-migracao-lote.in-fatura                = fatura.nr-fatura
+           reajuste-contrato-migracao-lote.dc-total                 = fatura.vl-total
+           .   
+           
+    create reajuste-contrato.
+    assign reajuste-contrato.in-id                      = next-value (seq-reajuste-contrato)
+           reajuste-contrato.in-modalidade              = temp-assoc-usuario.in-modalidade-origem
+           reajuste-contrato.in-termo                   = temp-assoc-usuario.in-termo-origem
+           reajuste-contrato.in-quantidade-parcelas     = 0            
+           reajuste-contrato.lg-cancelado               = no
+           reajuste-contrato.lg-gerado-eventos          = yes
+           reajuste-contrato.dt-criacao                 = now
+           reajuste-contrato.dc-valor-cobrado           = fatura.vl-total
+           reajuste-contrato.ch-detalhamento            = substitute ("EVENTOS MIGRADOS DO CONTRATO &1/&2 PARA O CONTRATO &3/4",
+                                                                      temp-assoc-usuario.in-modalidade-origem,
+                                                                      temp-assoc-usuario.in-termo-origem,
+                                                                      in-modalidade,
+                                                                      in-termo)
+           reajuste-contrato.ch-origem-historico        = ORIGEM_HISTORICO_MIGRAR_EVENTO
+           .            
+           
+    create temp-migracao-lote-gerado.
+    assign temp-migracao-lote-gerado.in-id-lote = reajuste-contrato-migracao-lote.in-id.           
+
+    log-manager:write-message (substitute ("thealth -> registrando na tabela de historico"), "DEBUG") no-error.
+    for each temp-assoc-usuario
+       where temp-assoc-usuario.in-usuario-destino <> 0:
+           
+           
+        
+        publish EV_API_REAJUSTE_PLANO_MIGRAR_VALORES (input  substitute ("&1/&2 - Registrando hist¢rico para o benefici†rio &3 - &4 - R$ &5",
+                                                                         in-modalidade,
+                                                                         in-termo,
+                                                                         temp-assoc-usuario.in-usuario-destino,
+                                                                         temp-assoc-usuario.ch-nome,
+                                                                         string (temp-assoc-usuario.dc-valor-evento, ">>>>>9.99")))
+                .        
+        
+        create reajuste-contrato-migracao-item.
+        assign reajuste-contrato-migracao-item.in-id                    = next-value (seq-reajuste-contrato-migracao-i)
+               reajuste-contrato-migracao-item.ch-usuario               = v_cod_usuar_corren
+               reajuste-contrato-migracao-item.dt-ocorrencia            = now
+               reajuste-contrato-migracao-item.dc-valor-evento          = temp-assoc-usuario.dc-valor-evento
+               reajuste-contrato-migracao-item.in-quantidade-eventos    = temp-assoc-usuario.in-quantidade-evento
+               reajuste-contrato-migracao-item.in-ano                   = in-ano
+               reajuste-contrato-migracao-item.in-mes                   = in-mes
+               reajuste-contrato-migracao-item.in-evento                = temp-assoc-usuario.in-evento
+               reajuste-contrato-migracao-item.in-faixa-etaria          = temp-assoc-usuario.in-faixa-etaria
+               reajuste-contrato-migracao-item.in-grau-parentesco       = temp-assoc-usuario.in-grau-parentesco
+               reajuste-contrato-migracao-item.in-modalidade-destino    = in-modalidade
+               reajuste-contrato-migracao-item.in-termo-destino         = in-termo
+               reajuste-contrato-migracao-item.in-modalidade-origem     = temp-assoc-usuario.in-modalidade-origem
+               reajuste-contrato-migracao-item.in-termo-origem          = temp-assoc-usuario.in-termo-origem
+               reajuste-contrato-migracao-item.in-usuario-destino       = temp-assoc-usuario.in-usuario-destino
+               reajuste-contrato-migracao-item.in-usuario-origem        = temp-assoc-usuario.in-usuario-origem
+               reajuste-contrato-migracao-item.in-sequencia-nota        = in-sequencia-nota
+               reajuste-contrato-migracao-item.in-fatura                = in-numero-fatura
+               reajuste-contrato-migracao-item.dc-contratante           = dc-contratante
+               reajuste-contrato-migracao-lote.in-modalidade-origem     = temp-assoc-usuario.in-modalidade-origem
+               reajuste-contrato-migracao-lote.in-termo-origem          = temp-assoc-usuario.in-termo-origem
+               .         
+    end.
+    
+    find first temp-assoc-usuario
+         where temp-assoc-usuario.in-usuario-destino    = 0
+               no-error.
+               
+    log-manager:write-message (substitute ("thealth -> existe benef nao migrado?: &1", available temp-assoc-usuario), "DEBUG") no-error.               
+    if available temp-assoc-usuario
+    then do:
+        
+        log-manager:write-message (substitute ("thealth -> encontrado valor devido para beneficiario que nao foi migrado para contrato destino "), "DEBUG") no-error.
+        
+        assign dc-valor-total   = 0
+               in-total-eventos = 0
+               .
+
+
+        log-manager:write-message (substitute ("thealth -> buscando numero da fatura"), "DEBUG") no-error.
+        assign in-numero-fatura = buscarNumeroFatura (in-modalidade, dc-contratante).        
+        log-manager:write-message (substitute ("thealth -> numero da fatura: &1", in-numero-fatura), "DEBUG") no-error.
+        
+        log-manager:write-message (substitute ("thealth -> buscando sequencia nota"), "DEBUG") no-error.            
+        assign in-sequencia-nota    = buscarSequenciaNota (in-modalidade, 
+                                                           in-termo, 
+                                                           dc-contratante, 
+                                                           dc-contratante-origem, 
+                                                           in-ano, 
+                                                           in-mes).
+        log-manager:write-message (substitute ("thealth -> sequencia da nota: &1", in-sequencia-nota), "DEBUG") no-error.
+
+        create notaserv.
+        assign notaserv.cd-modalidade         = in-modalidade
+               notaserv.cd-contratante        = dc-contratante
+               notaserv.cd-contratante-origem = dc-contratante-origem
+               notaserv.nr-ter-adesao         = in-termo
+               notaserv.cd-especie            = ch-especie
+               notaserv.aa-referencia         = in-ano
+               notaserv.mm-referencia         = in-mes
+               notaserv.nr-sequencia          = in-sequencia-nota
+               notaserv.ep-codigo             = parafatu.ep-codigo
+               notaserv.cod-estabel           = parafatu.cod-estabel
+               notaserv.dt-emissao            = today
+               notaserv.dt-vencimento         = dt-vencimento
+               notaserv.mo-codigo             = 0
+               notaserv.vl-total              = 0
+               notaserv.nr-fatura             = in-numero-fatura
+               notaserv.lg-contabilizada      = no
+               notaserv.cd-userid             = v_cod_usuar_corren
+               notaserv.dt-atualizacao        = today
+               notaserv.date-1                = today
+               .            
+            
+        create fatura.
+        assign fatura.cd-contratante            = dc-contratante
+               fatura.nr-fatura                 = in-numero-fatura
+               fatura.aa-referencia             = in-ano
+               fatura.mm-referencia             = in-mes
+               fatura.ep-codigo                 = parafatu.ep-codigo
+               fatura.cod-estabel               = parafatu.cod-estabel
+               fatura.cd-modalidade             = in-modalidade
+               fatura.cd-especie                = ch-especie
+               fatura.ds-mensagem               = 'Fatura gerada automaticamente pela rotina de migraá∆o de valores de reajuste entre contratos'
+               fatura.portador                  = in-portador
+               fatura.modalidade                = in-modalidade-cob
+               fatura.ct-codigo                 = parafatu.ct-codigo
+               fatura.sc-codigo                 = parafatu.sc-codigo
+               fatura.nr-titulo-acr             = ""
+               fatura.parcela                   = 0
+               fatura.dt-emissao                = today
+               fatura.dt-vencimento             = dt-vencimento
+               fatura.cd-tipo-vencimento        = 0
+               fatura.cd-sit-fatu               = estrsitu.cd-sit-inicial
+               fatura.mo-codigo                 = 0
+               fatura.in-tipo-fatura            = 3
+               fatura.cd-userid                 = v_cod_usuar_corren
+               fatura.dt-atualizacao            = today
+               fatura.date-3                    = today
+               fatura.nr-ter-adesao-estatistica = 0
+               fatura.dec-1                     = 0
+               fatura.dec-2                     = 0
+               fatura.log-1                     = no
+               fatura.int-4                     = 0
+               fatura.int-10                    = 0
+               .       
+
+        create fatueven.
+        assign fatueven.cd-modalidade           = notaserv.cd-modalidade
+               fatueven.cd-contratante          = notaserv.cd-contratante
+               fatueven.cd-contratante-origem   = notaserv.cd-contratante-origem
+               fatueven.nr-ter-adesao           = notaserv.nr-ter-adesao
+               fatueven.aa-referencia           = notaserv.aa-referencia
+               fatueven.mm-referencia           = notaserv.mm-referencia
+               fatueven.nr-sequencia            = notaserv.nr-sequencia
+               fatueven.cd-evento               = temp-assoc-usuario.in-evento
+               fatueven.cd-tipo-cob             = 0
+               fatueven.lg-cred-deb             = yes
+               fatueven.lg-destacado            = evenfatu.lg-destacado
+               fatueven.lg-modulo               = no
+               fatueven.ct-codigo               = evencont.ct-codigo
+               fatueven.sc-codigo               = evencont.sc-codigo
+               fatueven.qt-evento-ref           = 0
+               fatueven.vl-evento-ref           = 0
+               fatueven.cd-userid               = v_cod_usuar_corren
+               fatueven.cd-userid               = v_cod_usuar_corren
+               fatueven.dt-atualizacao          = today
+               .
+
+        for each temp-assoc-usuario
+           where temp-assoc-usuario.in-usuario-destino  = 0
+        break by temp-assoc-usuario.in-evento:
+            
+            assign dc-valor-total   = dc-valor-total + temp-assoc-usuario.dc-valor-evento
+                   in-total-eventos = in-total-eventos + temp-assoc-usuario.in-quantidade-evento
+                   .
+        end.
+
+        create ftavulev.
+        assign ftavulev.cd-modalidade   = in-modalidade
+               ftavulev.cd-contratante  = dc-contratante
+               ftavulev.aa-referencia   = in-ano
+               ftavulev.mm-referencia   = in-mes
+               ftavulev.nr-ter-adesao   = in-termo
+               ftavulev.nr-sequencia    = in-sequencia-nota
+               ftavulev.cd-evento       = temp-assoc-usuario.in-evento                   
+               ftavulev.cd-contratante-origem
+                                        = dc-contratante-origem
+               ftavulev.ds-evento       = caps (temp-assoc-usuario.ch-nome)
+               .
+
+        assign fatueven.qt-evento       = in-total-eventos 
+               fatueven.vl-evento       = dc-valor-total
+               notaserv.vl-total        = dc-valor-total
+               fatura.vl-total          = dc-valor-total
+               .
+               
+        find first temp-assoc-usuario.               
+
+        create reajuste-contrato-migracao-lote.
+        assign reajuste-contrato-migracao-lote.in-id                    = next-value (seq-reajuste-contrato-migracao-l)
+               reajuste-contrato-migracao-lote.in-modalidade-destino    = in-modalidade
+               reajuste-contrato-migracao-lote.in-termo-destino         = in-termo
+               reajuste-contrato-migracao-lote.dt-ocorrencia            = now
+               reajuste-contrato-migracao-lote.ch-tipo-fatura           = TIPO_FATURA_AVULSA
+               reajuste-contrato-migracao-lote.dt-emissao               = fatura.dt-emissao
+               reajuste-contrato-migracao-lote.dt-vencimento            = fatura.dt-vencimento
+               reajuste-contrato-migracao-lote.dc-contratante           = fatura.cd-contratante
+               reajuste-contrato-migracao-lote.in-fatura                = fatura.nr-fatura
+               reajuste-contrato-migracao-lote.dc-total                 = fatura.vl-total
+               reajuste-contrato-migracao-lote.in-modalidade-origem     = temp-assoc-usuario.in-modalidade-origem
+               reajuste-contrato-migracao-lote.in-termo-origem          = temp-assoc-usuario.in-termo-origem
+               .                
+
+        create temp-migracao-lote-gerado.
+        assign temp-migracao-lote-gerado.in-id-lote = reajuste-contrato-migracao-lote.in-id.               
+               
+        create reajuste-contrato.
+        assign reajuste-contrato.in-id                      = next-value (seq-reajuste-contrato)
+               reajuste-contrato.in-modalidade              = temp-assoc-usuario.in-modalidade-origem
+               reajuste-contrato.in-termo                   = temp-assoc-usuario.in-termo-origem
+               reajuste-contrato.in-quantidade-parcelas     = 0            
+               reajuste-contrato.lg-cancelado               = no
+               reajuste-contrato.lg-gerado-eventos          = yes
+               reajuste-contrato.dt-criacao                 = now
+               reajuste-contrato.dc-valor-cobrado           = fatura.vl-total
+               reajuste-contrato.ch-detalhamento            = substitute ("EVENTOS MIGRADOS DO CONTRATO &1/&2 PARA O CONTRATO &3/4",
+                                                                          temp-assoc-usuario.in-modalidade-origem,
+                                                                          temp-assoc-usuario.in-termo-origem,
+                                                                          in-modalidade,
+                                                                          in-termo)
+               reajuste-contrato.ch-origem-historico        = ORIGEM_HISTORICO_MIGRAR_EVENTO
+               .
+               
+        for each temp-assoc-usuario
+           where temp-assoc-usuario.in-usuario-destino  = 0:
+               
+            create reajuste-contrato-migracao-item.
+            assign reajuste-contrato-migracao-item.in-id                 = next-value (seq-reajuste-contrato-migracao-i)
+                   reajuste-contrato-migracao-item.ch-usuario            = v_cod_usuar_corren
+                   reajuste-contrato-migracao-item.dt-ocorrencia         = now
+                   reajuste-contrato-migracao-item.dc-valor-evento       = temp-assoc-usuario.dc-valor-evento
+                   reajuste-contrato-migracao-item.in-quantidade-eventos = temp-assoc-usuario.in-quantidade-evento
+                   reajuste-contrato-migracao-item.in-ano                = in-ano
+                   reajuste-contrato-migracao-item.in-mes                = in-mes
+                   reajuste-contrato-migracao-item.in-evento             = temp-assoc-usuario.in-evento
+                   reajuste-contrato-migracao-item.in-faixa-etaria       = temp-assoc-usuario.in-faixa-etaria
+                   reajuste-contrato-migracao-item.in-grau-parentesco    = temp-assoc-usuario.in-grau-parentesco
+                   reajuste-contrato-migracao-item.in-modalidade-destino = in-modalidade
+                   reajuste-contrato-migracao-item.in-termo-destino      = in-termo
+                   reajuste-contrato-migracao-item.in-modalidade-origem  = temp-assoc-usuario.in-modalidade-origem
+                   reajuste-contrato-migracao-item.in-termo-origem       = temp-assoc-usuario.in-termo-origem
+                   reajuste-contrato-migracao-item.in-usuario-destino    = temp-assoc-usuario.in-usuario-destino
+                   reajuste-contrato-migracao-item.in-usuario-origem     = temp-assoc-usuario.in-usuario-origem
+                   reajuste-contrato-migracao-item.in-sequencia-nota     = in-sequencia-nota
+                   reajuste-contrato-migracao-item.in-fatura             = in-numero-fatura
+                   reajuste-contrato-migracao-item.dc-contratante        = dc-contratante
+                   .             
+        end.
+                
+               
+    
+    
+                                        
+    end.
+             
+    for each temp-assoc-usuario:
+        
+        publish EV_API_REAJUSTE_PLANO_MIGRAR_VALORES (input  substitute ("&1/&2 - Marcando eventos para o benefici†rio &3 - &4 - como utilizados",
+                                                                         in-modalidade,
+                                                                         in-termo,
+                                                                         temp-assoc-usuario.in-usuario-destino,
+                                                                         temp-assoc-usuario.ch-nome)).        
+        for each temp-vinculo-evento-progto
+           where temp-vinculo-evento-progto.rc-assoc-usuario    = recid (temp-assoc-usuario):
+            
+            for first event-progdo-bnfciar exclusive-lock
+                where recid (event-progdo-bnfciar)  = temp-vinculo-evento-progto.rc-evento-progto:
+                
+                assign event-progdo-bnfciar.nr-sequencia = 999.
+            end.
+        end.
+    end.
+             
+end procedure.
 
 procedure criarTemporariaValorBenef private:
 /*------------------------------------------------------------------------------
@@ -1216,6 +1951,76 @@ procedure gerarJson private:
 
 end procedure.
 
+procedure gerarPdfMigracaoContrato:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input  parameter in-id-lote              as   integer    no-undo.
+    define input  parameter ch-caminho-saida        as   character  no-undo.
+    define input  parameter ch-arquivo              as   character  no-undo.
+    
+    do on error undo, return:
+        
+        CriarPdf (substitute ("&1/&2", ch-caminho-saida, ch-arquivo),
+                  PDF_RETRATO,
+                  ?).
+                  
+        AdicionarColunaImpressao ('benefs', 'tcontrato', 'EspÔøΩcie', 10, PDF_IMPRESSAO_AT).
+        AdicionarColunaImpressao ('benefs', 'tnome', 'TÔøΩtulo', 30, PDF_IMPRESSAO_AT).
+        AdicionarColunaImpressao ('benefs', 'tcarteira', 'Parcela', 60, PDF_IMPRESSAO_AT).
+        AdicionarColunaImpressao ('benefs', 'tvalor', 'Vl. Saldo', 40, PDF_IMPRESSAO_TO).
+        
+        NovaPagina().
+                      
+        for first reajuste-contrato-migracao-lote no-lock
+            where reajuste-contrato-migracao-lote.in-id     = in-id-lote:
+                
+            for each reajuste-contrato-migracao-item no-lock
+               where reajuste-contrato-migracao-item.in-id-lote = reajuste-contrato-migracao-lote.in-id,
+               first usuario no-lock
+               where usuario.cd-modalidade                      = reajuste-contrato-migracao-item.in-modalidade-origem
+                 and usuario.nr-ter-adesao                      = reajuste-contrato-migracao-item.in-termo-origem
+                 and usuario.cd-usuario                         = reajuste-contrato-migracao-item.in-usuario-origem:
+                   
+                for last car-ide no-lock
+               use-index car-ide1
+                   where car-ide.cd-unimed  = usuario.cd-unimed
+                     and car-ide.cd-modalidade  = usuario.cd-modalidade
+                     and car-ide.nr-ter-adesao  = usuario.nr-ter-adesao
+                     and car-ide.cd-usuario     = usuario.cd-usuario:
+                end. 
+                
+                ImprimeValor ('benefs', 'tcontrato', substitute ("&1/&2/&3", usuario.cd-modalidade, usuario.nr-ter-adesao, usuario.cd-usuario)).
+                ImprimeValor ('benefs', 'tnome', usuario.nm-usuario).
+                ImprimeValor ('benefs', 'tcarteira', if available car-ide then string (car-ide.cd-carteira-inteira) else "").
+                ImprimeValor ('benefs', 'tvalor', string (reajuste-contrato-migracao-item.dc-valor-evento, 'R$ >>>,>>9.99')).
+                   
+            end.
+        end.
+        
+        FecharPdf().
+        
+        catch cs-erro as Progress.Lang.Error : 
+            
+            if cs-erro:GetMessageNum(1) = 1
+            then do:
+                
+                message substitute ("Ops...~nOcorreu um erro ao gerar o pdf.~n&1",
+                                    cs-erro:GetMessage(1))
+                view-as alert-box error buttons ok.
+            end.
+            else do:
+            
+                message substitute ("Ops...~nOcorreu um erro ao gerar o pdf.~nInforme a TI com um print desta mensagem.~n&1",
+                                    cs-erro:GetMessage(1))
+                view-as alert-box error buttons ok.
+            end.    
+        end catch.
+    end.    
+    
+end procedure.
+
 procedure limpaTemporaria private:
 /*------------------------------------------------------------------------------
  Purpose:
@@ -1250,6 +2055,268 @@ procedure limpaTemporaria private:
             
             delete temp-valor-faturado-mes.
         end.       
+    end.
+
+end procedure.
+
+procedure migrarValoresEntreContratos:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input  parameter in-modalidade-origem    as   integer    no-undo.
+    define input  parameter in-termo-origem         as   integer    no-undo.
+    define input  parameter in-modalidade-destino   as   integer    no-undo.
+    define input  parameter in-termo-destino        as   integer    no-undo.
+    define input  parameter in-mes                  as   integer    no-undo.
+    define input  parameter in-ano                  as   integer    no-undo.
+    define output parameter table                   for  temp-migracao-lote-gerado.              
+    
+    define buffer buf-propost                       for  propost.
+    define buffer buf-usuario                       for  usuario.
+        
+    define variable dt-corte                        as   date       no-undo.
+    define variable lo-parametro                    as   longchar   no-undo.
+    define variable in-evento-filtro                as   integer    no-undo.
+    define variable ch-tipo-contrato-pessoa         as   character  no-undo.
+    
+    empty temp-table temp-assoc-usuario.
+    empty temp-table temp-vinculo-evento-progto.
+    empty temp-table temp-evento-conta.
+    empty temp-table temp-migracao-lote-gerado.
+    
+    do on error undo, throw:
+        
+        find first propost no-lock
+             where propost.cd-modalidade    = in-modalidade-origem
+               and propost.nr-ter-adesao    = in-termo-origem
+                   no-error.
+                   
+        if not available propost
+        then do:
+            
+            undo, throw new AppError (substitute ("N∆o foi encontrada a proposta de origem: &1/&2", in-modalidade-origem, in-termo-origem), 1).
+        end.               
+        
+        publish EV_API_REAJUSTE_PLANO_MIGRAR_VALORES (input  substitute ("&1/&2 - Iniciando programa", propost.cd-modalidade, propost.nr-ter-adesao)).
+        
+        find first buf-propost no-lock
+             where buf-propost.cd-modalidade    = in-modalidade-destino
+               and buf-propost.nr-ter-adesao    = in-termo-destino
+                   no-error.
+                   
+        if not available buf-propost
+        then do:
+            
+            undo, throw new AppError (substitute ("N∆o foi encontrada a proposta de destino: &1/&2", in-modalidade-destino, in-termo-destino), 1).                   
+        end.
+        
+        assign ch-tipo-contrato-pessoa = tipoContratoPessoa (in-modalidade-origem, in-termo-origem).
+
+        if not valid-handle (hd-api-config)
+        then run thealth/libs/api-mantem-parametros.p persistent set hd-api-config.
+        
+        run buscarParametro in hd-api-config (input  "th-gps-param",
+                                              input  "reajuste-plano", 
+                                              input  ?,
+                                              input  if ch-tipo-contrato-pessoa = "PF" 
+                                                     then PARAM_EVENTO_REAJUSTE_PF
+                                                     else PARAM_EVENTO_REAJUSTE_PJ,   
+                                              output lo-parametro) no-error.
+                                               
+        if lo-parametro = ?
+        or lo-parametro = ''
+        then undo, throw new AppError('Evento para cobranáa n∆o parametrizado.~nAcesse os parÉmetros do programa para registrar o evento').                                              
+                                              
+        assign in-evento-filtro = integer (lo-parametro).        
+        
+        run apurarValoresMigracaoContrato (input  in-modalidade-origem,
+                                           input  in-termo-origem,
+                                           input  in-evento-filtro,
+                                           input  in-ano, 
+                                           input  in-mes).
+        
+        find first temp-assoc-usuario    
+             where temp-assoc-usuario.dc-valor-evento > 0
+                   no-error.
+                    
+        if not available temp-assoc-usuario
+        then do:
+    
+    
+            log-manager:write-message (substitute ("thealth -> nenhum benefici†rio tem valor a transferir para o novo contrato, nada a fazer"), "INFO") no-error.
+            return.            
+        end.
+        
+        // remove valores zerado, para n∆o gerar sugeira e ter que filtrar em cada query
+        for each temp-assoc-usuario
+           where temp-assoc-usuario.dc-valor-evento = 0:
+            
+            delete temp-assoc-usuario.
+        end.
+        
+        //temp-table temp-assoc-usuario:write-json ("file", "c:/temp/casali/dump.json", yes).        
+        run criarNota (input  in-modalidade-destino,
+                       input  in-termo-destino,
+                       input  in-ano,
+                       input  in-mes).
+    end.
+    
+end procedure.
+
+
+procedure apurarValoresMigracaoContrato private:
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define input  parameter in-modalidade-destino   as   integer    no-undo.
+    define input  parameter in-termo-destino        as   integer    no-undo.
+    define input  parameter in-evento-filtro        as   integer    no-undo.
+    define input  parameter in-ano                  as   integer    no-undo.
+    define input  parameter in-mes                  as   integer    no-undo.
+    
+    define buffer buf-usuario                       for  usuario.
+    
+    define variable dt-corte                        as   date       no-undo.
+    
+    dt-corte = add-interval (date (in-mes, 1, in-ano), -1, 'days').
+    
+    for each usuario no-lock
+          of propost,
+       first ter-ade no-lock
+          of propost:
+
+        log-manager:write-message (substitute ("thealth -> criando registro na temp para o beneficiario: &1", usuario.cd-usuario), "DEBUG") no-error.
+        
+        for last vlbenef no-lock
+       use-index vlbenef1
+           where vlbenef.cd-modalidade          = propost.cd-modalidade
+             and vlbenef.cd-contratante         = propost.cd-contratante
+             and vlbenef.cd-contratante-origem  = propost.cd-contrat-origem
+             and vlbenef.nr-ter-adesao          = propost.nr-ter-adesao
+             and vlbenef.aa-referencia          = ter-ade.aa-ult-fat
+             and vlbenef.mm-referencia          = ter-ade.mm-ult-fat
+             and vlbenef.cd-usuario             = usuario.cd-usuario
+                 .
+        end.
+        
+        if not available vlbenef
+        then do:
+            
+            for last vlbenef no-lock
+           use-index vlbenef1
+               where vlbenef.cd-modalidade          = propost.cd-modalidade
+                 and vlbenef.cd-contratante         = propost.cd-contratante
+                 and vlbenef.cd-contratante-origem  = propost.cd-contrat-origem
+                 and vlbenef.nr-ter-adesao          = propost.nr-ter-adesao
+                 and vlbenef.cd-usuario             = usuario.cd-usuario
+                  by vlbenef.aa-referencia
+                  by vlbenef.mm-referencia
+                     .
+            end.
+        end.
+        
+        if not available vlbenef
+        then next.
+        
+        publish EV_API_REAJUSTE_PLANO_MIGRAR_VALORES (input  substitute ("&1/&2 - Lendo beneficiario &3 - &4",
+                                                                         usuario.cd-modalidade,
+                                                                         usuario.nr-ter-adesao,
+                                                                         usuario.cd-usuario,
+                                                                         usuario.nm-usuario)).
+        
+        // verificar, pois se o usuario n∆o possuir vlbenef (por alguma raz∆o), vai gerar erro neste ponto.
+        // talvez tenha que criar uma rotina que calcula a faixa do benef
+        create temp-assoc-usuario.
+        assign temp-assoc-usuario.in-modalidade-origem  = usuario.cd-modalidade        
+               temp-assoc-usuario.in-termo-origem       = usuario.nr-ter-adesao
+               temp-assoc-usuario.in-usuario-origem     = usuario.cd-usuario               
+               temp-assoc-usuario.ch-cpf                = usuario.cd-cpf
+               temp-assoc-usuario.ch-nome               = usuario.nm-usuario
+               temp-assoc-usuario.dt-nascimento         = usuario.dt-nascimento
+               temp-assoc-usuario.in-evento             = in-evento-filtro
+               temp-assoc-usuario.in-grau-parentesco    = usuario.cd-grau-parentesco
+               temp-assoc-usuario.in-faixa-etaria       = vlbenef.nr-faixa-etaria
+               .
+        
+        log-manager:write-message (substitute ("thealth -> buscando beneficiario &1 no contrato novo", usuario.cd-usuario), "DEBUG") no-error.
+        
+        find first buf-usuario
+             where buf-usuario.cd-modalidade    = in-modalidade-destino
+               and buf-usuario.nr-ter-adesao    = in-termo-destino
+               and buf-usuario.cd-cpf           = usuario.cd-cpf
+                   no-error.
+                   
+        if not available buf-usuario 
+        then do:
+            
+            log-manager:write-message (substitute ("thealth -> beneficiario &1 nao encontrado no contrato novo", usuario.cd-usuario), "WARN") no-error.
+            next.
+        end.                
+        
+        assign temp-assoc-usuario.in-usuario-destino    = buf-usuario.cd-usuario.                      
+
+        for each event-progdo-bnfciar no-lock
+       use-index evntprge-id
+           where event-progdo-bnfciar.cd-modalidade     = usuario.cd-modalidade
+             and event-progdo-bnfciar.nr-ter-adesao     = usuario.nr-ter-adesao
+             and event-progdo-bnfciar.cd-usuario        = usuario.cd-usuario
+             and event-progdo-bnfciar.nr-sequencia      = 0:
+                 
+            if event-progdo-bnfciar.cd-evento  <> in-evento-filtro
+            then do:
+                
+                log-manager:write-message (substitute ("thealth -> encontrado evento &1, desconsiderando pois n∆o Ç o evento parametrizado", in-evento-filtro), "DEBUG") no-error.                    
+                next.
+            end.
+            
+            if (    event-progdo-bnfciar.aa-referencia  = in-ano
+                and event-progdo-bnfciar.mm-referencia  < in-mes)
+            or (    event-progdo-bnfciar.aa-referencia  < in-ano)
+            then do:
+                
+                log-manager:write-message (substitute ("thealth -> desconsiderando evento &1, pois Ç de per°odo anterior (&2/&3)",
+                                                       event-progdo-bnfciar.cd-usuario,
+                                                       event-progdo-bnfciar.mm-referencia,
+                                                       event-progdo-bnfciar.aa-referencia), 
+                                           "DEBUG") no-error.
+            end.
+
+            log-manager:write-message (substitute ("thealth -> encontrado evento programado para beneficiario &1, competencia &2/&3, valor &4 ainda nao processado",
+                                                   event-progdo-bnfciar.cd-usuario,
+                                                   string (event-progdo-bnfciar.mm-referencia, "99"),
+                                                   string (event-progdo-bnfciar.aa-referencia, "9999"),
+                                                   event-progdo-bnfciar.vl-evento), 
+                                       "DEBUG") no-error.                
+            
+            
+            log-manager:write-message (substitute ("thealth -> adicionado valor &1 aos eventos do beneficiario &2",
+                                                   event-progdo-bnfciar.vl-evento,
+                                                   event-progdo-bnfciar.cd-usuario), 
+                                       "DEBUG") no-error.
+            assign temp-assoc-usuario.in-quantidade-evento  = temp-assoc-usuario.in-quantidade-evento + 1
+                   temp-assoc-usuario.dc-valor-evento       = temp-assoc-usuario.dc-valor-evento + event-progdo-bnfciar.vl-evento
+                   .
+                   
+            create temp-vinculo-evento-progto.
+            assign temp-vinculo-evento-progto.rc-assoc-usuario  = recid (temp-assoc-usuario)
+                   temp-vinculo-evento-progto.rc-evento-progto  = recid (event-progdo-bnfciar)
+                   .                                                
+        end.
+        
+        publish EV_API_REAJUSTE_PLANO_MIGRAR_VALORES (input  substitute ("&1/&2 - Lendo beneficiario &3 - &4 - Valor devido: R$ &5",
+                                                                         usuario.cd-modalidade,
+                                                                         usuario.nr-ter-adesao,
+                                                                         usuario.cd-usuario,
+                                                                         usuario.nm-usuario,
+                                                                         string (temp-assoc-usuario.dc-valor-evento, ">>>>>9.99" ))).
+
+        log-manager:write-message (substitute ("thealth -> valor final do beneficiario &1: &2, &3 eventos",
+                                               temp-assoc-usuario.in-usuario-origem,
+                                               temp-assoc-usuario.dc-valor-evento,
+                                               temp-assoc-usuario.in-quantidade-evento), 
+                                   "DEBUG") no-error.
     end.
 
 end procedure.
@@ -1289,7 +2356,111 @@ procedure simularFaturamento private:
 end procedure.
 
 
+
 /* ************************  Function Implementations ***************** */
+
+function buscarDataVencimento returns date private
+    (ch-empresa         as   character,
+     ch-estabelecimento as   character,
+     in-tipo-vencimento as   integer,
+     in-vencimento      as   integer,
+     in-ano             as   integer,
+     in-mes             as   integer):
+/*------------------------------------------------------------------------------
+ Purpose: busca a data de vencimento de um contrato com base na parametrizaá∆o do produto
+ Notes:
+------------------------------------------------------------------------------*/
+
+    define variable dt-calculada        as   date       no-undo. 
+    define variable ch-mensagem         as   character  no-undo.
+    define variable lg-erro             as   logical    no-undo.   
+ 
+    for first tipovenc no-lock
+        where tipovenc.cd-tipo-vencimento = in-tipo-vencimento.
+    end.
+
+    if not available tipovenc
+    then do:
+        
+        undo, throw new AppError (substitute ("tipo do vencimento &1 n∆o encontrado na tabela tipovenc", in-tipo-vencimento), 1).         
+    end.
+   
+    run rtp/rtdtvenc.p (input        ch-empresa,
+                        input        ch-estabelecimento,
+                        input        in-vencimento,
+                        input        date (in-mes, 1, in-ano),
+                        input-output dt-calculada,
+                        input        in-mes,
+                        input        in-ano,
+                        input        in-tipo-vencimento,
+                        output       lg-erro,
+                        output       ch-mensagem)
+        .
+    
+    if lg-erro
+    then do:
+        
+        undo, throw new AppError (substitute ("erro ao calcular data de vencimento: &1", ch-mensagem)).
+    end.
+            
+    return dt-calculada.        
+end function.
+
+function buscarNumeroFatura returns integer private
+    (in-modalidade          as   integer,
+     dc-contratante         as   decimal):
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/
+    define variable in-numero-fatura        as   integer    no-undo.    
+
+    run rtp/rtnrfat.p (input  in-modalidade,
+                       input  dc-contratante,
+                       output in-numero-fatura) no-error.
+                       
+    if error-status:error
+    then do:
+        
+        undo, throw new AppError (substitute ("falha ao buscar numero da fatura: &1", error-status:get-message (1)), 1).
+    end.                       
+
+    return in-numero-fatura.
+end function.
+
+function buscarSequenciaNota returns integer 
+    (in-modalidade          as   integer,
+     in-termo               as   integer,
+     dc-contratante         as   decimal,
+     dc-contratante-origem  as   decimal,
+     in-ano                 as   integer,
+     in-mes                 as   integer):
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/    
+    define variable in-sequencia            as   integer    no-undo.
+    
+    run rtp/rt-sequencia-nota.p (input        "CRIACAO",
+                                 input        "FP0511S",
+                                 input        in-modalidade,   
+                                 input        dc-contratante,        
+                                 input        dc-contratante-origem,    
+                                 input        in-termo,   
+                                 input        in-ano,              
+                                 input        in-mes,
+                                 input        yes,              
+                                 input-output in-sequencia) no-error.
+                                 
+    if error-status:error
+    then do:
+        
+        undo, throw new AppError (substitute ("falha ao buscar a sequencia da nota: &1", in-sequencia), 1).
+    end.                                 
+
+    return in-sequencia.
+                                      
+end function.
 
 function numeroParcelas returns integer private
     (in-modalidade  as   integer,
@@ -1320,5 +2491,20 @@ function numeroParcelas returns integer private
                                "DEBUG") no-error.
     return in-numero-parcela.
         
+end function.
+
+function removerSequenciaNota returns logical private
+    (dc-contratante         as   decimal,
+     in-ano                 as   integer,
+     in-mes                 as   integer):
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/    
+
+    run RemoveSequenciaNota  (input  dc-contratante,
+                              input  in-ano,
+                              input  in-mes) no-error.
+    return true.
 end function.
 

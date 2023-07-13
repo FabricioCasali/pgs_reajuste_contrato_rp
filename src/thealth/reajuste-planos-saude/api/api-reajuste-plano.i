@@ -17,8 +17,18 @@ define variable TIPO_PESSOA_FISICA          as   character  init 'F'    no-undo.
 define variable TIPO_PESSOA_JURIDICA        as   character  init 'J'    no-undo.
 define variable TIPO_PESSOA_AMBOS           as   character  init 'A'    no-undo.
 
+define variable TIPO_FATURA_NORMAL          as   character  init 'NORMAL'
+                                                                        no-undo.
+define variable TIPO_FATURA_AVULSA          as   character  init 'AVULSA'
+                                                                        no-undo.
+                                                                        
+
 define variable ORIGEM_HISTORICO_GERAR_EVENTO
                                             as   character  init 'Gerar'
+                                                                        no-undo.
+                                                                        
+define variable ORIGEM_HISTORICO_MIGRAR_EVENTO
+                                            as   character  init 'Migrar'
                                                                         no-undo.
                                                                         
 define variable ORIGEM_HISTORICO_REMOVER_EVENTO
@@ -35,6 +45,10 @@ define variable EV_API_REAJUSTE_PLANO_CRIAR_EVENTO
 
 define variable EV_API_REAJUSTE_PLANO_ELIMINAR_EVENTO
                                             as   character  init 'EV_API_REAJUSTE_PLANO_ELIMINAR_EVENTO'
+                                                                        no-undo.
+
+define variable EV_API_REAJUSTE_PLANO_MIGRAR_VALORES
+                                            as   character  init 'EV_API_REAJUSTE_PLANO_MIGRAR_VALORES'
                                                                         no-undo.
 
 define temp-table temp-contrato             no-undo
@@ -260,8 +274,57 @@ define temp-table temp-historico            no-undo
           ch-periodo-reajuste
           ch-origem-historico          
     .
+    
+    
+// temp-table utilizada na migra‡Æo de valores entre contratos, vinculando o usuario do contrato novo com o velho
+define temp-table temp-assoc-usuario        no-undo
+    field in-modalidade-origem              as   integer
+    field in-termo-origem                   as   integer
+    field in-usuario-origem                 as   integer
+    field in-usuario-destino                as   integer
+    field ch-nome                           as   character 
+    field ch-cpf                            as   character 
+    field dt-nascimento                     as   date
+    field in-quantidade-evento              as   integer
+    field dc-valor-evento                   as   decimal
+    field in-evento                         as   integer
+    field in-faixa-etaria                   as   integer
+    field in-grau-parentesco                as   integer
+    field rc-event-progdo                   as   recid
+    index idx1
+          as primary
+          as unique
+          in-usuario-origem
+    index idx2
+          as unique
+          in-usuario-destino
+    index idx3
+          dc-valor-evento
+    .    
+    
+define temp-table temp-migracao-lote-gerado no-undo
+    field in-id-lote                        as   integer
+    .    
+    
+// temp-table utilizada para armazenar os eventos programados relacionados ao usuario    
+define temp-table temp-vinculo-evento-progto        
+                                            no-undo
+    field rc-assoc-usuario                  as   recid
+    field rc-evento-progto                  as   recid
+    index idx1
+          as primary
+          rc-assoc-usuario
+    .    
 
-
+define temp-table temp-evento-conta         no-undo
+    field ch-conta                          as   character 
+    field ch-centro                         as   character 
+    field in-evento                         as   integer
+    index idx1
+          as primary
+          as unique
+          in-evento
+    .
      
 define dataset ds-dados
     for temp-contrato,
