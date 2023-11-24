@@ -57,14 +57,15 @@ ADD FIELD "in-quantidade-eventos" OF "reajuste-contrato-migracao-item" AS intege
   POSITION 9
   MAX-WIDTH 4
   ORDER 80
-
-ADD FIELD "dc-valor-evento" OF "reajuste-contrato-migracao-item" AS integer 
-  FORMAT "->,>>>,>>9"
+  
+ADD FIELD "dc-valor-evento" OF "reajuste-contrato-migracao-item" AS decimal 
+  FORMAT "->>,>>9.99"
   INITIAL "0"
   POSITION 10
-  MAX-WIDTH 4
-  ORDER 90
-
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 90  
+  
 ADD FIELD "in-evento" OF "reajuste-contrato-migracao-item" AS integer 
   FORMAT "->,>>>,>>9"
   INITIAL "0"

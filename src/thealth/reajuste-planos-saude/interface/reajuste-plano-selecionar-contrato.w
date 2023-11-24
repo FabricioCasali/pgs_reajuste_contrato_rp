@@ -89,12 +89,12 @@ define button buttonProcessar
      label "" 
      size 11 by 2.38.
 
-define variable textContratoDestino as character format "99/999999":U 
+define variable textContratoDestino as character format "99/99999999":U 
      label "Contrato destino" 
      view-as fill-in 
      size 11 by 1 no-undo.
 
-define variable textContratoOriginal as character format "99/999999":U 
+define variable textContratoOriginal as character format "99/99999999":U 
      label "Contrato Origem" 
      view-as fill-in 
      size 11 by 1 no-undo.
@@ -239,6 +239,48 @@ do:
                               input  textDescricaoOrigem:handle).  
 end.
 
+on leave of textContratoOriginal in frame frameDefault /* Contrato origem */
+do:
+    def var modalidade as int no-undo.
+    def var termo as int no-undo.
+
+    assign modalidade = int(entry(1, textContratoOriginal:SCREEN-VALUE, "/"))
+           termo      = int(entry(2, textContratoOriginal:SCREEN-VALUE, "/")) no-error.
+
+    textContratoOriginal:screen-value = string(modalidade, "99") + string(termo, "99999999").
+end.
+
+on leave of textContratoDestino in frame frameDefault /* Contrato origem */
+do:
+    def var modalidade as int no-undo.
+    def var termo as int no-undo.
+
+    assign modalidade = int(entry(1, textContratoDestino:SCREEN-VALUE, "/"))
+           termo      = int(entry(2, textContratoDestino:SCREEN-VALUE, "/")) no-error.
+
+    textContratoDestino:screen-value = string(modalidade, "99") + string(termo, "99999999").
+end.
+
+on leave of textPeriodoFaturamento in frame frameDefault 
+do:
+    def var mes as int no-undo.
+    def var ano as int no-undo.
+
+    assign mes = int(entry(1, textPeriodoFaturamento:SCREEN-VALUE, "/"))
+           ano = int(entry(2, textPeriodoFaturamento:SCREEN-VALUE, "/")) no-error.
+
+    textPeriodoFaturamento:screen-value = string(mes, "99") + string(ano, "9999").
+end.
+
+//iagoo
+&Scoped-define SELF-NAME buttonFechar
+&ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonFechar frameDefault
+on choose of buttonFechar in frame frameDefault /* Contrato Origem */
+do:
+    apply 'window-close' to frame frameDefault.
+end.
+
+
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
 
@@ -334,6 +376,7 @@ procedure acaoProcessar private:
     define variable in-ano                      as   integer    no-undo.
     define variable in-mes                      as   integer    no-undo.
     define variable lg-pdf                      as   logical    no-undo.
+    define variable nm-arquivo-pdf              as   char       no-undo.
     
     
     do on error undo, return:
@@ -404,23 +447,33 @@ procedure acaoProcessar private:
                                                                               input  no).
         end.
         
-        run migrarValoresEntreContratos in hd-api (input  in-modalidade-origem,
-                                                   input  in-termo-origem,
-                                                   input  in-modalidade-destino,
-                                                   input  in-termo-destino,
-                                                   input  in-mes,
-                                                   input  in-ano,
-                                                   output table temp-migracao-lote-gerado).
-                                                   
-                                                   
-        message "Valores migrados com sucesso. Deseja gerar o PDF com os detalhes?~nEle poder  ser gerado posteriormente atrav‚s da tela principal"            
-        view-as alert-box question buttons yes-no update lg-pdf.
-        
-        if lg-pdf
-        then do:
-            
-            
-        end.
+		do transaction:
+			run migrarValoresEntreContratos in hd-api (input  in-modalidade-origem,
+													   input  in-termo-origem,
+													   input  in-modalidade-destino,
+													   input  in-termo-destino,
+													   input  in-mes,
+													   input  in-ano,
+													   output table temp-migracao-lote-gerado).
+													   
+													   
+			message "Valores migrados com sucesso. Deseja gerar o PDF com os detalhes?"            
+			view-as alert-box question buttons yes-no update lg-pdf.
+			
+			if lg-pdf
+			then do:
+                    nm-arquivo-pdf = string(today) + "_" + string(time, "hh:mm:ss").
+                    nm-arquivo-pdf = replace(replace(nm-arquivo-pdf, "/", "_"), ":", "_").
+                    nm-arquivo-pdf = "migra_reajuste_" + nm-arquivo-pdf + ".pdf".
+
+					run gerarPdfMigracaoContrato in hd-api (input table temp-migracao-lote-gerado by-reference,
+															input session:temp-directory,
+															input nm-arquivo-pdf).		
+			end.
+			
+			message "Relatorio gerado em: " session:temp-directory
+				view-as alert-box.
+		end.
         
         catch cs-erro as Progress.Lang.Error : 
             
@@ -464,13 +517,13 @@ procedure acaoProcurarContrato :
     
     assign hd-desc:screen-value                             = ""
            hd-desc:private-data                             = ?
-           buttonProcessar:sensitive in frame frameDefault  = no
+          // buttonProcessar:sensitive in frame frameDefault  = no
            .    
     
     do on error undo, return:
-        
+
         assign in-modalidade    = integer (substring (hd-campo:screen-value, 1, 2))
-               in-termo         = integer (substring (hd-campo:screen-value, 4))
+               in-termo         = integer (substring (hd-campo:screen-value, 4)) no-error
                .
         
         find first propost no-lock
@@ -484,27 +537,29 @@ procedure acaoProcurarContrato :
             find first contrat no-lock
                  where contrat.cd-contratante   = propost.cd-contratante
                        .
-            
-            assign hd-desc:screen-value         = substitute ("&1 - &2", contrat.cd-contratante, contrat.nm-contratante)
-                   hd-desc:private-data         = string (recid (propost))
+
+            if avail contrat
+            then assign hd-desc:screen-value         = substitute ("&1 - &2", contrat.cd-contratante, contrat.nm-contratante)
+                        hd-desc:private-data         = string (recid (propost))
                    .
-        end.                   
+        end.   
         
-        catch cs-erro as Progress.Lang.Error : 
-    
+        catch cs-erro as Progress.Lang.Error :
+
             if cs-erro:GetMessageNum(1) = 1
             then do:
-                
+    
                 message substitute ("Ops...~nOcorreu um erro ao buscar os dados do contrato.~n&1",
                                     cs-erro:GetMessage(1))
                 view-as alert-box error buttons ok.
             end.
             else do:
-            
+    
                 message substitute ("Ops...~nOcorreu um erro ao buscar os dados do contrato.~nInforme a TI com um print desta mensagem.~n&1",
                                     cs-erro:GetMessage(1))
                 view-as alert-box error buttons ok.
-            end.    
+            end.
+
         end catch.
     end.    
     

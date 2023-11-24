@@ -1274,6 +1274,7 @@ procedure criarNota private:
         
         create reajuste-contrato-migracao-item.
         assign reajuste-contrato-migracao-item.in-id                    = next-value (seq-reajuste-contrato-migracao-i)
+		       reajuste-contrato-migracao-item.in-id-lote               = reajuste-contrato-migracao-lote.in-id
                reajuste-contrato-migracao-item.ch-usuario               = v_cod_usuar_corren
                reajuste-contrato-migracao-item.dt-ocorrencia            = now
                reajuste-contrato-migracao-item.dc-valor-evento          = temp-assoc-usuario.dc-valor-evento
@@ -1472,6 +1473,7 @@ procedure criarNota private:
                
             create reajuste-contrato-migracao-item.
             assign reajuste-contrato-migracao-item.in-id                 = next-value (seq-reajuste-contrato-migracao-i)
+		           reajuste-contrato-migracao-item.in-id-lote            = reajuste-contrato-migracao-lote.in-id
                    reajuste-contrato-migracao-item.ch-usuario            = v_cod_usuar_corren
                    reajuste-contrato-migracao-item.dt-ocorrencia         = now
                    reajuste-contrato-migracao-item.dc-valor-evento       = temp-assoc-usuario.dc-valor-evento
@@ -1956,50 +1958,81 @@ procedure gerarPdfMigracaoContrato:
  Purpose:
  Notes:
 ------------------------------------------------------------------------------*/
-    define input  parameter in-id-lote              as   integer    no-undo.
+    define input  parameter table for temp-migracao-lote-gerado.
     define input  parameter ch-caminho-saida        as   character  no-undo.
     define input  parameter ch-arquivo              as   character  no-undo.
     
+	
+    create temp-migracao-lote-gerado.
+    assign temp-migracao-lote-gerado.in-id-lote = reajuste-contrato-migracao-lote.in-id.       	
+	
     do on error undo, return:
         
         CriarPdf (substitute ("&1/&2", ch-caminho-saida, ch-arquivo),
                   PDF_RETRATO,
-                  ?).
-                  
-        AdicionarColunaImpressao ('benefs', 'tcontrato', 'Esp�cie', 10, PDF_IMPRESSAO_AT).
-        AdicionarColunaImpressao ('benefs', 'tnome', 'T�tulo', 30, PDF_IMPRESSAO_AT).
-        AdicionarColunaImpressao ('benefs', 'tcarteira', 'Parcela', 60, PDF_IMPRESSAO_AT).
-        AdicionarColunaImpressao ('benefs', 'tvalor', 'Vl. Saldo', 40, PDF_IMPRESSAO_TO).
-        
-        NovaPagina().
-                      
-        for first reajuste-contrato-migracao-lote no-lock
-            where reajuste-contrato-migracao-lote.in-id     = in-id-lote:
-                
-            for each reajuste-contrato-migracao-item no-lock
-               where reajuste-contrato-migracao-item.in-id-lote = reajuste-contrato-migracao-lote.in-id,
-               first usuario no-lock
-               where usuario.cd-modalidade                      = reajuste-contrato-migracao-item.in-modalidade-origem
-                 and usuario.nr-ter-adesao                      = reajuste-contrato-migracao-item.in-termo-origem
-                 and usuario.cd-usuario                         = reajuste-contrato-migracao-item.in-usuario-origem:
-                   
-                for last car-ide no-lock
-               use-index car-ide1
-                   where car-ide.cd-unimed  = usuario.cd-unimed
-                     and car-ide.cd-modalidade  = usuario.cd-modalidade
-                     and car-ide.nr-ter-adesao  = usuario.nr-ter-adesao
-                     and car-ide.cd-usuario     = usuario.cd-usuario:
-                end. 
-                
-                ImprimeValor ('benefs', 'tcontrato', substitute ("&1/&2/&3", usuario.cd-modalidade, usuario.nr-ter-adesao, usuario.cd-usuario)).
-                ImprimeValor ('benefs', 'tnome', usuario.nm-usuario).
-                ImprimeValor ('benefs', 'tcarteira', if available car-ide then string (car-ide.cd-carteira-inteira) else "").
-                ImprimeValor ('benefs', 'tvalor', string (reajuste-contrato-migracao-item.dc-valor-evento, 'R$ >>>,>>9.99')).
-                   
-            end.
-        end.
-        
-        FecharPdf().
+                  //search("igp/logo_cliente.gif")
+				  ?
+				  ).
+				  
+        AdicionarColunaImpressao ('benefs', 'tcontrato', 'Contrato'  , 10, PDF_IMPRESSAO_AT).
+        AdicionarColunaImpressao ('benefs', 'tnome'    , 'Nome'      , 40, PDF_IMPRESSAO_AT).
+        AdicionarColunaImpressao ('benefs', 'tcarteira', 'Carteira'  , 120, PDF_IMPRESSAO_AT).
+        AdicionarColunaImpressao ('benefs', 'tvalor'   , '     Valor', 150, PDF_IMPRESSAO_AT).			
+
+        AdicionarColunaImpressao ('fatAvulsa', 'tContratante', 'Contratante', 10, PDF_IMPRESSAO_AT).
+        AdicionarColunaImpressao ('fatAvulsa', 'tFatura'     , 'Fatura'     , 40, PDF_IMPRESSAO_AT).
+        AdicionarColunaImpressao ('fatAvulsa', 'tVencimento' , 'Vencimento' , 120, PDF_IMPRESSAO_AT).
+        AdicionarColunaImpressao ('fatAvulsa', 'tValor'      , '     Valor' , 150, PDF_IMPRESSAO_AT).					
+				  
+		for each temp-migracao-lote-gerado:
+			for first reajuste-contrato-migracao-lote no-lock
+                where reajuste-contrato-migracao-lote.in-id = temp-migracao-lote-gerado.in-id-lote: end.
+				
+			if not avail reajuste-contrato-migracao-lote
+			then next.
+			
+			if reajuste-contrato-migracao-lote.ch-tipo-fatura = TIPO_FATURA_NORMAL
+			then do:
+					NovaPagina().
+					ImprimeValorEmEnter("Detalhamento de beneficiarios que possuem valor de reajuste a pagar.", 10).
+					NovaLinha().
+					ImprimeHeaderRetrato('benefs').		
+
+					for each reajuste-contrato-migracao-item no-lock
+					   where reajuste-contrato-migracao-item.in-id-lote = reajuste-contrato-migracao-lote.in-id,
+					   first usuario no-lock
+					   where usuario.cd-modalidade                      = reajuste-contrato-migracao-item.in-modalidade-destino
+						 and usuario.nr-ter-adesao                      = reajuste-contrato-migracao-item.in-termo-destino
+						 and usuario.cd-usuario                         = reajuste-contrato-migracao-item.in-usuario-destino:
+											
+						for last car-ide no-lock
+					   use-index car-ide1
+						   where car-ide.cd-unimed  = usuario.cd-unimed
+							 and car-ide.cd-modalidade  = usuario.cd-modalidade
+							 and car-ide.nr-ter-adesao  = usuario.nr-ter-adesao
+							 and car-ide.cd-usuario     = usuario.cd-usuario:
+						end. 
+						
+						ImprimeValor ('benefs', 'tcontrato', substitute ("&1/&2/&3", usuario.cd-modalidade, usuario.nr-ter-adesao, usuario.cd-usuario)).
+						ImprimeValor ('benefs', 'tnome', usuario.nm-usuario).
+						ImprimeValor ('benefs', 'tcarteira', if available car-ide then string (car-ide.cd-carteira-inteira) else "").
+						ImprimeValor ('benefs', 'tvalor', string (reajuste-contrato-migracao-item.dc-valor-evento, 'R$ >>>,>>9.99')).
+						NovaLinha().
+					end.
+					next.
+				 end.
+				 
+				NovaPagina().
+				ImprimeValorEmEnter("Detalhamento da fatura avulsa.", 10).
+				NovaLinha().
+				ImprimeHeaderRetrato('fatAvulsa').	
+
+				ImprimeValor ('fatAvulsa', 'tContratante', string(reajuste-contrato-migracao-lote.dc-contratante)).
+				ImprimeValor ('fatAvulsa', 'tFatura'     , string(reajuste-contrato-migracao-lote.in-fatura)).
+				ImprimeValor ('fatAvulsa', 'tVencimento' , string(reajuste-contrato-migracao-lote.dt-vencimento, "99/99/9999")).
+				ImprimeValor ('fatAvulsa', 'tValor'      , string(reajuste-contrato-migracao-lote.dc-total, 'R$ >>>,>>9.99')).
+				NovaLinha().				
+		end.
         
         catch cs-erro as Progress.Lang.Error : 
             
@@ -2017,6 +2050,10 @@ procedure gerarPdfMigracaoContrato:
                 view-as alert-box error buttons ok.
             end.    
         end catch.
+		
+		finally:
+			FecharPdf().
+		end.
     end.    
     
 end procedure.
@@ -2130,8 +2167,8 @@ procedure migrarValoresEntreContratos:
                                               
         assign in-evento-filtro = integer (lo-parametro).        
         
-        run apurarValoresMigracaoContrato (input  in-modalidade-origem,
-                                           input  in-termo-origem,
+        run apurarValoresMigracaoContrato (input  in-modalidade-destino,
+                                           input  in-termo-destino,
                                            input  in-evento-filtro,
                                            input  in-ano, 
                                            input  in-mes).
@@ -2155,7 +2192,7 @@ procedure migrarValoresEntreContratos:
             delete temp-assoc-usuario.
         end.
         
-        //temp-table temp-assoc-usuario:write-json ("file", "c:/temp/casali/dump.json", yes).        
+        //temp-table temp-assoc-usuario:write-json ("file", "c:/temp/dump.json", yes).        
         run criarNota (input  in-modalidade-destino,
                        input  in-termo-destino,
                        input  in-ano,

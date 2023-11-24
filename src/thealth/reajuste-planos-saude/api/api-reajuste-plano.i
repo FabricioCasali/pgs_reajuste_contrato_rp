@@ -296,7 +296,6 @@ define temp-table temp-assoc-usuario        no-undo
           as unique
           in-usuario-origem
     index idx2
-          as unique
           in-usuario-destino
     index idx3
           dc-valor-evento

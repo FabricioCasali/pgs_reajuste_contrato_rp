@@ -62,14 +62,16 @@ define variable hd-status       as   handle     no-undo.
 &Scoped-define INTERNAL-TABLES temp-contrato
 
 /* Definitions for BROWSE browseDados                                   */
-&Scoped-define FIELDS-IN-QUERY-browseDados   
-&Scoped-define ENABLED-FIELDS-IN-QUERY-browseDados   
+&Scoped-define FIELDS-IN-QUERY-browseDados temp-contrato.in-modalidade temp-contrato.in-proposta temp-contrato.in-termo temp-contrato.ch-codigo-contratante temp-contrato.ch-contratante temp-contrato.dt-inicio            
+
+&Scoped-define ENABLED-FIELDS-IN-QUERY-browseDados temp-contrato.lg-marcado   
+&Scoped-define ENABLED-TABLES-IN-QUERY-browseDados temp-contrato
+&Scoped-define FIRST-ENABLED-TABLE-IN-QUERY-browseDados temp-contrato
 &Scoped-define SELF-NAME browseDados
 &Scoped-define QUERY-STRING-browseDados FOR EACH temp-contrato
 &Scoped-define OPEN-QUERY-browseDados OPEN QUERY {&SELF-NAME} FOR EACH temp-contrato.
 &Scoped-define TABLES-IN-QUERY-browseDados temp-contrato
 &Scoped-define FIRST-TABLE-IN-QUERY-browseDados temp-contrato
-
 
 /* Definitions for DIALOG-BOX frameDefault                              */
 &Scoped-define OPEN-BROWSERS-IN-QUERY-frameDefault ~
@@ -137,13 +139,18 @@ define query browseDados for
 define browse browseDados
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _DISPLAY-FIELDS browseDados frameDefault _FREEFORM
   query browseDados display
-      
+    temp-contrato.in-modalidade         column-label "Modalidade"                    
+    temp-contrato.in-proposta           column-label "Proposta"                    
+    temp-contrato.in-termo              column-label "Termo"        
+    temp-contrato.ch-codigo-contratante column-label "Cod. Contratante"        
+    temp-contrato.ch-contratante        column-label "Contratante"        
+    temp-contrato.dt-inicio             column-label "Dt Inicio Vigencia"        
+
 /* _UIB-CODE-BLOCK-END */
 &ANALYZE-RESUME
     WITH NO-ROW-MARKERS SEPARATORS SIZE 111 BY 12.86
          FONT 1
          TITLE "Contratos (0)" FIT-LAST-COLUMN.
-
 
 /* ************************  Frame Definitions  *********************** */
 
@@ -160,7 +167,7 @@ define frame frameDefault
     with view-as dialog-box keep-tab-order 
          side-labels no-underline three-d  scrollable 
          bgcolor 15 font 1
-         title "<insert dialog title>"
+         title "Consultar Contratos"
          default-button buttonSelecionar cancel-button buttonCancelar widget-id 100.
 
 
@@ -222,7 +229,7 @@ end.
 &ANALYZE-SUSPEND _UIB-CODE-BLOCK _CONTROL buttonCancelar frameDefault
 on choose of buttonCancelar in frame frameDefault /* Cancelar */
 do:
-    apply "close" to this-procedure.  
+    apply 'window-close' to frame frameDefault.
 end.
 
 /* _UIB-CODE-BLOCK-END */
@@ -301,7 +308,9 @@ procedure acaoPesquisar :
         if textModalidade:screen-value in frame frameDefault   <> "0"
         then do:
             
-            assign ch-query = substitute ("&1 where propost.cd-modalidade = &1", textModalidade:screen-value)
+            assign ch-query = substitute ("&1 where propost.cd-modalidade = &2", 
+                                          ch-query,
+                                          textModalidade:screen-value)
                    lg-where = yes
                    .
         end.
@@ -316,25 +325,22 @@ procedure acaoPesquisar :
                    .
         end.
         
-        assign ch-query = substitute ("&1, first ter-ade no-lock where ter-ade.cd-modalidade = propost.cd-modalidade and ter-ade.nr-ter-adesao = propost.nr-ter-adesao", ch-query).
-        assign ch-query = substitute ("&1, first contrat no-lock where contrat.cd-contratante = propost.cd-contratante", ch-query).
-        
+        assign ch-query = substitute ("&1 , first ter-ade no-lock where ter-ade.cd-modalidade = propost.cd-modalidade and ter-ade.nr-ter-adesao = propost.nr-ter-adesao", ch-query).
+        assign ch-query = substitute ("&1 , first contrat no-lock where contrat.cd-contratante = propost.cd-contratante", ch-query).
+
         if textContratante:screen-value <> ""
         then do:
-            
-            assign ch-query = substitute ("&1 where contrat.nm-contratante matches ('*&2*')", ch-query, textContratante:screen-value).
+            assign ch-query = substitute ("&1 and contrat.nm-contratante matches ('*&2*')", ch-query, textContratante:screen-value).
         end.
         
         empty temp-table temp-contrato.
-        
+
         create query hd-query.
         hd-query:set-buffers (buffer propost:handle, buffer ter-ade:handle, buffer contrat:handle).
         hd-query:query-prepare (ch-query).
         hd-query:query-open().
         
-        
         repeat:
-            
             hd-query:get-next.
             
             if hd-query:query-off-end
@@ -353,12 +359,13 @@ procedure acaoPesquisar :
                    .
         end.
         
-        if browseDados:is-open 
-        then browseDados:query-close ().
+        if query browseDados:is-open 
+        then query browseDados:query-close ().
         
-        browseDados:query-prepare ("preselect each temp-contrato").
-        browseDados:query-open ().
+        query browseDados:query-prepare ("preselect each temp-contrato").
+        query browseDados:query-open ().
         browseDados:title = substitute ("Contratos (&1)", query browseDados:num-results).
+        browse browseDados:refresh () no-error. 
         
         catch cs-erro as Progress.Lang.Error : 
             
