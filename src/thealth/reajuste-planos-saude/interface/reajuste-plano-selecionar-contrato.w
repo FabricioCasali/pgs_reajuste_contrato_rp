@@ -377,6 +377,7 @@ procedure acaoProcessar private:
     define variable in-mes                      as   integer    no-undo.
     define variable lg-pdf                      as   logical    no-undo.
     define variable nm-arquivo-pdf              as   char       no-undo.
+	define variable lg-possui-valor-migra       as   logical    no-undo.
     
     
     do on error undo, return:
@@ -454,25 +455,30 @@ procedure acaoProcessar private:
 													   input  in-termo-destino,
 													   input  in-mes,
 													   input  in-ano,
+													   output lg-possui-valor-migra,
 													   output table temp-migracao-lote-gerado).
 													   
-													   
-			message "Valores migrados com sucesso. Deseja gerar o PDF com os detalhes?"            
-			view-as alert-box question buttons yes-no update lg-pdf.
-			
-			if lg-pdf
-			then do:
-                    nm-arquivo-pdf = string(today) + "_" + string(time, "hh:mm:ss").
-                    nm-arquivo-pdf = replace(replace(nm-arquivo-pdf, "/", "_"), ":", "_").
-                    nm-arquivo-pdf = "migra_reajuste_" + nm-arquivo-pdf + ".pdf".
-
-					run gerarPdfMigracaoContrato in hd-api (input table temp-migracao-lote-gerado by-reference,
-															input session:temp-directory,
-															input nm-arquivo-pdf).		
-			end.
-			
-			message "Relatorio gerado em: " session:temp-directory
-				view-as alert-box.
+			if lg-possui-valor-migra
+            then do:
+		           message "Valores migrados com sucesso. Deseja gerar o PDF com os detalhes?"            
+		               view-as alert-box question buttons yes-no update lg-pdf.
+		           
+		           if lg-pdf
+		           then do:
+                           nm-arquivo-pdf = string(today) + "_" + string(time, "hh:mm:ss").
+                           nm-arquivo-pdf = replace(replace(nm-arquivo-pdf, "/", "_"), ":", "_").
+                           nm-arquivo-pdf = "migra_reajuste_" + nm-arquivo-pdf + ".pdf".
+		           
+		           		   run gerarPdfMigracaoContrato in hd-api (input table temp-migracao-lote-gerado by-reference,
+		           			                                       input session:temp-directory,
+		           												   input nm-arquivo-pdf).		
+		                end.
+		           
+		           message "Relatorio gerado em: " session:temp-directory
+		           	view-as alert-box.			
+                 end.
+            else message "Nenhum beneficiario possui valor de reajuste para ser transferido ao novo contrato!"
+		           	         view-as alert-box.						 
 		end.
         
         catch cs-erro as Progress.Lang.Error : 

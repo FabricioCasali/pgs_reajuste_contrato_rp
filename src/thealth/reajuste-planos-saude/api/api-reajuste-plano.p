@@ -2101,12 +2101,13 @@ procedure migrarValoresEntreContratos:
  Purpose:
  Notes:
 ------------------------------------------------------------------------------*/
-    define input  parameter in-modalidade-origem    as   integer    no-undo.
-    define input  parameter in-termo-origem         as   integer    no-undo.
-    define input  parameter in-modalidade-destino   as   integer    no-undo.
-    define input  parameter in-termo-destino        as   integer    no-undo.
-    define input  parameter in-mes                  as   integer    no-undo.
-    define input  parameter in-ano                  as   integer    no-undo.
+    define input  parameter in-modalidade-origem    as   integer           no-undo.
+    define input  parameter in-termo-origem         as   integer           no-undo.
+    define input  parameter in-modalidade-destino   as   integer           no-undo.
+    define input  parameter in-termo-destino        as   integer           no-undo.
+    define input  parameter in-mes                  as   integer           no-undo.
+    define input  parameter in-ano                  as   integer           no-undo.
+	define output parameter lg-possui-valor-migra   as   logical init true no-undo.
     define output parameter table                   for  temp-migracao-lote-gerado.              
     
     define buffer buf-propost                       for  propost.
@@ -2179,11 +2180,10 @@ procedure migrarValoresEntreContratos:
                     
         if not available temp-assoc-usuario
         then do:
-    
-    
-            log-manager:write-message (substitute ("thealth -> nenhum benefici†rio tem valor a transferir para o novo contrato, nada a fazer"), "INFO") no-error.
-            return.            
-        end.
+               log-manager:write-message (substitute ("thealth -> nenhum beneficiario tem valor a transferir para o novo contrato, nada a fazer"), "INFO") no-error.
+               lg-possui-valor-migra = false.
+               return.            
+             end.
         
         // remove valores zerado, para n∆o gerar sugeira e ter que filtrar em cada query
         for each temp-assoc-usuario
